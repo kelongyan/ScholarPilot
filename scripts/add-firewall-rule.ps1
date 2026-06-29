@@ -4,7 +4,7 @@
 # 必须以管理员身份运行。
 #
 # 运行方式（以管理员身份打开 PowerShell）：
-#   powershell -ExecutionPolicy Bypass -File D:\ScholarPilot\scripts\add-firewall-rule.ps1
+#   powershell -ExecutionPolicy Bypass -File D:\Kairos\scripts\add-firewall-rule.ps1
 
 $ErrorActionPreference = "Stop"
 

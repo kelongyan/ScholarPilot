@@ -39,7 +39,7 @@
 |---|---|---|---|
 | Phase 0 | Engineering Foundation | `Done` | 2026-06-29 |
 | Phase 1 | Core RAG Loop | `Done` | 2026-06-29 |
-| Phase 2 | Hybrid RAG and Trace Engine | `Review` | 2026-06-29 |
+| Phase 2 | Hybrid RAG and Trace Engine | `Done` | 2026-06-29 |
 | Phase 3 | Knowledge Base Product Layer | `Not Started` | 2026-06-29 |
 | Phase 4 | Knowledge Operations, Auth, Audit, Evaluation, Observability | `Not Started` | 2026-06-29 |
 | Phase 5 | Multi-Agent Orchestration | `Not Started` | 2026-06-29 |
@@ -59,7 +59,7 @@
 | Chunking | Implemented | Token-sized overlap chunks |
 | Embedding and Qdrant indexing | Implemented | Provider-isolated |
 | Dense retrieval | Implemented | Qdrant |
-| BM25 sparse retrieval | Implemented | `rank-bm25` |
+| BM25 sparse retrieval | Implemented | `rank-bm25`, stopword-filtered lexical matches |
 | RRF fusion | Implemented | Phase 2 code |
 | Reranker provider boundary | Implemented | deterministic fallback only |
 | Evidence Pack | Implemented | Returned in trace |
@@ -109,12 +109,12 @@ Technology stack update:
 Commit:
 
 ```text
-Pending
+43ee5b5 feat: align project with Kairos direction
 ```
 
 ---
 
-### 2026-06-29 — Phase 2 in review
+### 2026-06-29 — Phase 2 complete
 
 Implemented the first complete Hybrid RAG loop on top of the Phase 1 single-document MVP:
 
@@ -134,6 +134,7 @@ Backend:
 - Added BM25 sparse retrieval over indexed chunk text.
 - Added RRF fusion of dense and sparse results.
 - Added swappable reranker provider boundary and deterministic fallback reranker.
+- Fixed BM25 sparse retrieval so lexical matches are preserved even when raw BM25 scores are non-positive.
 - `/chat` now returns structured retrieval trace while preserving answer and citations.
 - Added `SPARSE_RETRIEVAL_TOP_K`, `RERANK_TOP_K`, and `RERANKER_PROVIDER`.
 - Added minimal Phase 2 evaluation fixture.
@@ -148,8 +149,10 @@ Verification recorded:
 
 ```text
 cd backend
-uv run pytest tests/test_chat_api.py tests/test_citation_service.py tests/test_query_service.py tests/test_retrieval_service.py tests/test_evaluation_service.py
-# 13 passed
+uv run python -m pytest
+# 24 passed, 1 warning
+uv run python -m ruff check
+# All checks passed
 
 cd frontend
 pnpm lint
@@ -158,11 +161,37 @@ pnpm build
 # compiled successfully
 ```
 
-Still required before `Done`:
+Runtime verification recorded:
 
-- Runtime verification with real infra and model configuration.
-- Commit creation.
-- GitHub push.
+```text
+WSL:
+docker compose up -d
+# postgres/qdrant/redis healthy
+
+Windows backend:
+uv run python -m alembic upgrade head
+uv run python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+curl http://127.0.0.1:8000/health
+# {"status":"ok"}
+
+WSL worker:
+.venv-wsl/bin/python -m rq.cli worker --burst --url "redis://localhost:6379/0" default
+# process_document completed successfully
+
+Runtime chat verification:
+POST /documents/upload
+# status uploaded
+GET /documents/{doc_id}
+# status indexed, page_count 4
+POST /chat
+# answer grounded in evidence
+# citations=4
+# dense_results=4
+# sparse_results=4
+# fused_results=4
+# reranked_results=4
+# evidence_pack=4
+```
 
 Known gaps:
 
@@ -174,7 +203,7 @@ Known gaps:
 Commit:
 
 ```text
-Pending
+fix: complete Phase 2 runtime verification
 ```
 
 ---

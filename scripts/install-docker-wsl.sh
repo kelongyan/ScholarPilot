@@ -9,7 +9,7 @@
 # 执行方式（在 Windows 终端里）：
 #   wsl -d Ubuntu-22.04 -- bash -c 'curl -fsSL https://raw.githubusercontent.com/.../install-docker-wsl.sh | bash'
 #   或者把本文件复制进 WSL 后执行：
-#   wsl -d Ubuntu-22.04 -- bash /mnt/d/ScholarPilot/scripts/install-docker-wsl.sh
+#   wsl -d Ubuntu-22.04 -- bash /mnt/d/Kairos/scripts/install-docker-wsl.sh
 #
 # 注意：脚本需要 sudo 权限，执行时会提示输入密码。
 #
@@ -91,7 +91,7 @@ echo "     wsl -d Ubuntu-22.04"
 echo "  2. 验证免 sudo："
 echo "     docker ps"
 echo "  3. 启动 Kairos 基础设施："
-echo "     cd /mnt/d/ScholarPilot"
+echo "     cd /mnt/d/Kairos"
 echo "     docker compose up -d"
 echo "     docker compose ps"
 echo ""

@@ -2,8 +2,7 @@
 
 本文档记录 Kairos 的开发环境状态与配置方法。
 
-> 当前本地工作目录仍是 `D:\ScholarPilot` / `/mnt/d/ScholarPilot`。
-> GitHub 仓库已重命名为 `Kairos`，本地目录名后续手动修改后再同步路径示例。
+> 当前本地工作目录是 `D:\Kairos` / `/mnt/d/Kairos`。
 
 ---
 
@@ -52,7 +51,7 @@ API 和 Worker 共享同一个 PostgreSQL（Docker），文件路径用 **POSIX 
 export UV="/c/Users/admin/Appdata/Roaming/Python/Python313/Scripts/uv.exe"
 export UV_LINK_MODE=copy   # 避免 hardlink 警告
 
-cd D:/ScholarPilot/backend
+cd D:/Kairos/backend
 "$UV" sync --extra dev
 "$UV" run uvicorn app.main:app --reload
 ```
@@ -62,7 +61,7 @@ cd D:/ScholarPilot/backend
 ```bash
 wsl -d Ubuntu-22.04
 export PATH="$HOME/.local/bin:$PATH"
-cd /mnt/d/ScholarPilot/backend
+cd /mnt/d/Kairos/backend
 UV_PROJECT_ENVIRONMENT=.venv-wsl uv sync --extra dev --python 3.12
 ```
 
@@ -80,7 +79,7 @@ Docker Engine 装在 WSL Ubuntu-22.04 内（非 Docker Desktop）。
 ### 常用命令（WSL 内）
 
 ```bash
-cd /mnt/d/ScholarPilot
+cd /mnt/d/Kairos
 docker compose up -d        # 启动 postgres + qdrant + redis
 docker compose ps           # 查看状态
 docker compose down         # 停止（保留数据）
@@ -100,7 +99,7 @@ WSL 内原有的本地 PostgreSQL 14 和 Redis 已停止并禁用自启（`syste
 
 ```bash
 wsl -d Ubuntu-22.04
-cd /mnt/d/ScholarPilot
+cd /mnt/d/Kairos
 docker compose up -d
 docker compose ps    # 等待三个服务 healthy
 ```
@@ -134,7 +133,7 @@ EMBEDDING_DIM=1024
 
 ```bash
 export UV="/c/Users/admin/Appdata/Roaming/Python/Python313/Scripts/uv.exe"
-cd D:/ScholarPilot/backend
+cd D:/Kairos/backend
 "$UV" run alembic upgrade head
 ```
 
@@ -149,14 +148,14 @@ cd D:/ScholarPilot/backend
 ```bash
 wsl -d Ubuntu-22.04
 export PATH="$HOME/.local/bin:$PATH"
-cd /mnt/d/ScholarPilot/backend
+cd /mnt/d/Kairos/backend
 UV_PROJECT_ENVIRONMENT=.venv-wsl uv run rq worker --url "redis://localhost:6379/0" default
 ```
 
 ### 6. 启动前端（Windows 侧）
 
 ```bash
-cd D:/ScholarPilot/frontend
+cd D:/Kairos/frontend
 pnpm dev    # :3000
 ```
 

@@ -43,7 +43,7 @@ Phase 5  Multi-Agent 协作引擎
 Phase 6  生产化、统计看板与扩展生态
 ```
 
-当前优先级：完成 Phase 2 审核收尾，然后进入 Phase 3。
+当前优先级：Phase 2 已完成收尾，进入 Phase 3 知识库产品层。
 
 技术采用原则：
 
@@ -110,7 +110,7 @@ Phase 6  生产化、统计看板与扩展生态
 
 ## 6. Phase 2：Hybrid RAG 与 Trace 引擎
 
-状态：`Review`
+状态：`Done`
 
 目标：
 
@@ -126,11 +126,12 @@ Phase 6  生产化、统计看板与扩展生态
 - retrieval trace 返回到前端。
 - 最小固定评测 fixture。
 
-完成前还需要：
+已完成收尾：
 
-- 运行真实端到端流程：上传 PDF、等待 indexed、提问、查看 citations 和 trace。
-- 完成文档状态同步。
-- 创建 commit 并 push。
+- 真实端到端流程已验证：上传 PDF、等待 indexed、提问、查看 citations 和 trace。
+- runtime 验证覆盖 dense、BM25 sparse、RRF、rerank、Evidence Pack 和 citations。
+- 修复 BM25 raw score 非正时 sparse 结果被误丢弃的边界问题。
+- 文档状态已同步。
 
 验收标准：
 
@@ -292,7 +293,7 @@ Phase 6  生产化、统计看板与扩展生态
 
 ## 11. 当前开发建议
 
-Phase 3 开发前应先完成 Phase 2 收尾。进入 Phase 3 后，避免同时启动复杂权限、Agent 和大屏看板，先把知识库实体、多文档检索和最小知识运营信号打稳。
+Phase 2 收尾已完成。进入 Phase 3 后，避免同时启动复杂权限、Agent 和大屏看板，先把知识库实体、多文档检索和最小知识运营信号打稳。
 
 推荐拆分顺序：
 
