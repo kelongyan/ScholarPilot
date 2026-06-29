@@ -1,4 +1,4 @@
-"""Core infrastructure: configuration, logging, exceptions."""
+"""Core infrastructure: configuration, database, redis, qdrant."""
 
 from app.core.config import Settings, get_settings
 

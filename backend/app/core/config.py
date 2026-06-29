@@ -1,8 +1,6 @@
 """Application configuration.
 
 Settings are loaded from environment variables (or a local ``.env`` file).
-Phase 0 only establishes the configuration structure; the storage and model
-services are not connected until Phase 1.
 """
 
 from __future__ import annotations
@@ -31,22 +29,38 @@ class Settings(BaseSettings):
     api_prefix: str = ""
     debug: bool = False
 
-    # --- Storage (Phase 1 dependencies, reserved here) ---
+    # --- Storage ---
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/scholarpilot"
     redis_url: str = "redis://localhost:6379/0"
     qdrant_url: str = "http://localhost:6333"
+    qdrant_collection: str = "chunks"
+    # Local filesystem path for uploaded PDFs and parsed artifacts.
+    storage_dir: str = "storage"
 
-    # --- LLM provider (cloud + local reserved) ---
+    # --- LLM provider ---
+    # Provider can be: openai | anthropic | local
+    # "openai" covers OpenAI and any OpenAI-compatible endpoint
+    # (Qwen, DeepSeek, local vLLM/Ollama via base_url override).
     llm_provider: str = "openai"
     llm_api_key: str = ""
     llm_base_url: str = "https://api.openai.com/v1"
     llm_model: str = "gpt-4o-mini"
 
-    # --- Embedding provider (cloud + local reserved) ---
+    # --- Embedding provider ---
+    # Provider can be: openai | local
     embedding_provider: str = "openai"
     embedding_api_key: str = ""
     embedding_base_url: str = "https://api.openai.com/v1"
     embedding_model: str = "text-embedding-3-small"
+    embedding_dim: int = 1536
+
+    # --- RAG ---
+    retrieval_top_k: int = 5
+    chunk_size: int = 800
+    chunk_overlap: int = 120
+
+    # --- Async (RQ) ---
+    rq_queue_name: str = "default"
 
 
 @lru_cache

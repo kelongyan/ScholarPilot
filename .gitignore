@@ -49,3 +49,8 @@ pnpm-debug.log*
 
 # ===== Misc =====
 .vercel
+
+# ===== ScholarPilot runtime data =====
+# Uploaded PDFs and parsed artifacts (created at runtime by the backend).
+backend/storage/
+
