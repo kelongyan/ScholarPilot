@@ -13,6 +13,9 @@
 | Node.js | ✅ v24.14.0 | `C:\Program Files\nodejs\` |
 | pnpm | ✅ 11.5.2 | 全局（PATH 可用） |
 | WSL Ubuntu-22.04 | ✅ 运行中 | 数据在 `D:\WSL\Ubuntu\ext4.vhdx`（164G） |
+| Ollama (本地模型) | ✅ 0.30.11 | `localhost:11434`，监听 `0.0.0.0`，模型在 `D:\Ollama\models` |
+| LLM (qwen3:14b) | ✅ 已加载 | Q4_K_M，9.28GB，OpenAI 兼容 `/v1/chat/completions` |
+| Embedding (bge-m3) | ✅ 已加载 | F16，1024 维，OpenAI 兼容 `/v1/embeddings` |
 | uv (WSL) | ✅ 0.11.25 | `~/.local/bin/uv`（WSL 内） |
 | Python (WSL) | ✅ 3.12.13 | uv 自动下载，WSL venv `.venv-wsl` |
 | Docker Engine | ✅ 29.6.1 + compose 5.2.0 | 装在 WSL Ubuntu 内，数据在 D 盘 |
@@ -99,13 +102,30 @@ docker compose up -d
 docker compose ps    # 等待三个服务 healthy
 ```
 
-### 2. 配置 API key（首次）
+### 2. 配置本地模型（Ollama）
 
-```bash
-cd D:/ScholarPilot/backend
-cp .env.example .env
-# 编辑 .env，填入 LLM_API_KEY 和 EMBEDDING_API_KEY
+本地已部署 Ollama + qwen3:14b (LLM) + bge-m3 (Embedding)，详见
+`doc/06-local-llm-deployment.md`。`.env` 已配置为本地模型：
+
+```env
+LLM_PROVIDER=openai
+LLM_BASE_URL=http://172.31.240.1:11434/v1
+LLM_MODEL=qwen3:14b
+LLM_API_KEY=ollama
+
+EMBEDDING_PROVIDER=openai
+EMBEDDING_BASE_URL=http://172.31.240.1:11434/v1
+EMBEDDING_MODEL=bge-m3:latest
+EMBEDDING_API_KEY=ollama
+EMBEDDING_DIM=1024
 ```
+
+**关键：Ollama 网络配置**
+- Ollama 必须监听 `0.0.0.0:11434`（设置 `OLLAMA_HOST=0.0.0.0:11434`），否则 WSL worker 连不上。
+- 用 `scripts/start_ollama.bat` 启动 Ollama（已设好 `OLLAMA_MODELS=D:\Ollama\models` 和 `OLLAMA_HOST=0.0.0.0:11434`）。
+- `.env` 里的 `172.31.240.1` 是 WSL2 网关 IP（Windows 主机），Windows 侧和 WSL 侧都能访问。**不要用 localhost**——WSL worker 用 localhost 连不到 Windows 的 Ollama。
+- 需要一条防火墙规则允许 WSL 子网 (172.16.0.0/12) 访问 11434 端口（见 `scripts/add-firewall-rule.ps1`，以管理员运行）。
+- WSL2 网关 IP 可能变化，若 worker 报 embedding 连接错误，用 `wsl -d Ubuntu-22.04 -- ip route | grep default` 查最新网关 IP 并更新 `.env`。
 
 ### 3. 运行数据库迁移（首次，Windows 侧）
 
@@ -150,9 +170,14 @@ pnpm dev    # :3000
 - ✅ Docker 三服务启动（postgres/qdrant/redis healthy）
 - ✅ Alembic 迁移建表（documents/chunks/citations）
 - ✅ API 启动（/health, /documents, /docs）
-- ✅ PDF 上传 → 解析（status: parsed, pages: 4）
-- ✅ Qdrant chunks 集合创建
-- ⏳ Embedding + 问答：**需要配置 LLM/Embedding API key**
+- ✅ Ollama 本地模型加载（qwen3:14b + bge-m3，监听 0.0.0.0）
+- ✅ WSL worker 通过网关 IP 访问 Ollama（防火墙规则已加）
+- ✅ PDF 上传 → 解析 → chunk → embedding → 索引（status: indexed, pages: 4）
+- ✅ Qdrant chunks 集合创建（1024 维，匹配 bge-m3）
+- ✅ RAG 问答：基于证据生成答案 + 返回引用（page/score/原文片段）
+- ✅ 证据不足时明确拒答（"当前资料不足以支持可靠回答"）
+
+**端到端 RAG 闭环已完全跑通。**
 
 ---
 

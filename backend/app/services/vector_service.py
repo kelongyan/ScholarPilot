@@ -94,13 +94,13 @@ def retrieve(
             ]
         )
 
-    results = qdrant_client.search(
+    results = qdrant_client.query_points(
         collection_name=settings.qdrant_collection,
-        query_vector=query_vector,
+        query=query_vector,
         limit=k,
         query_filter=query_filter,
         with_payload=True,
-    )
+    ).points
     return [
         RetrievedChunk(
             chunk_id=hit.payload.get("chunk_id", ""),
