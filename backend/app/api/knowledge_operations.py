@@ -12,7 +12,7 @@ from app.schemas.knowledge_operations import (
     KnowledgeOperationItemUpdateRequest,
     KnowledgeOperationSuggestionListResponse,
 )
-from app.services import knowledge_operations_service
+from app.services import audit_log_service, knowledge_operations_service
 
 router = APIRouter(prefix="/knowledge-operations", tags=["knowledge-operations"])
 
@@ -52,6 +52,22 @@ async def update_item(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Knowledge operation item not found: {item_id}",
         )
+    audit_log_service.try_log_event(
+        db,
+        action="knowledge_operation_item.updated",
+        resource_type="knowledge_operation_item",
+        resource_id=item.item_id,
+        knowledge_base_id=item.knowledge_base_id,
+        detail_json={
+            "status": item.status,
+            "resolution_note": item.resolution_note,
+            "source_type": item.source_type,
+            "source_id": item.source_id,
+            "suggestion_type": item.suggestion_type,
+            "doc_id": item.doc_id,
+            "question_log_id": item.question_log_id,
+        },
+    )
     return KnowledgeOperationItemResponse.model_validate(item)
 
 

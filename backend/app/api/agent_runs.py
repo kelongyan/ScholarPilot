@@ -10,7 +10,12 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.repositories import document_repo, knowledge_base_repo
 from app.schemas.agent import AgentRunListResponse, AgentRunRequest, AgentRunResponse
-from app.services import agent_service, chat_trace_service, question_log_service
+from app.services import (
+    agent_service,
+    audit_log_service,
+    chat_trace_service,
+    question_log_service,
+)
 
 router = APIRouter(prefix="/agent-runs", tags=["agent-runs"])
 
@@ -69,6 +74,24 @@ async def run_agent(
         question_log_id=question_log_id,
         chat_trace_id=chat_trace_id,
     )
+    audit_log_service.try_log_event(
+        db,
+        action="agent_run.created",
+        resource_type="agent_run",
+        resource_id=result.run_id,
+        knowledge_base_id=result.knowledge_base_id,
+        detail_json={
+            "doc_id": result.doc_id,
+            "route": result.route,
+            "status": result.status,
+            "answer_status": result.answer_status,
+            "question_log_id": question_log_id,
+            "chat_trace_id": chat_trace_id,
+            "step_count": len(result.agent_steps),
+            "citation_count": len(result.citations),
+            "total_latency_ms": result.total_latency_ms,
+        },
+    )
 
     return agent_service.response_from_result(result)
 
@@ -109,6 +132,21 @@ async def get_agent_run(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Agent run not found: {run_id}",
         )
+    audit_log_service.try_log_event(
+        db,
+        action="agent_run.viewed",
+        resource_type="agent_run",
+        resource_id=result.run_id,
+        knowledge_base_id=result.knowledge_base_id,
+        detail_json={
+            "doc_id": result.doc_id,
+            "route": result.route,
+            "status": result.status,
+            "answer_status": result.answer_status,
+            "step_count": len(result.agent_steps),
+            "citation_count": len(result.citations),
+        },
+    )
     return result
 
 

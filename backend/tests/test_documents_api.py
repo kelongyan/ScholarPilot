@@ -124,7 +124,9 @@ def test_upload_creates_document_and_enqueues(monkeypatch, tmp_path) -> None:
     assert body["source"] == "pdf"
     assert body["doc_id"]
     assert body["knowledge_base_id"] == "kb-default"
-    assert len(fake_db.added) == 1
+    assert len(fake_db.added) == 2
+    assert fake_db.added[1].action == "document.uploaded"
+    assert fake_db.added[1].resource_id == body["doc_id"]
     assert len(fake_queue.enqueued) == 1
 
 
@@ -177,3 +179,5 @@ def test_upload_uses_supplied_knowledge_base(monkeypatch, tmp_path) -> None:
     body = response.json()
     assert body["knowledge_base_id"] == "kb-123"
     assert len(fake_queue.enqueued) == 1
+    assert len(fake_db.added) == 2
+    assert fake_db.added[1].knowledge_base_id == "kb-123"

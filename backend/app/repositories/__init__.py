@@ -2,6 +2,7 @@
 
 from app.repositories import (
     agent_run_repo,
+    audit_log_repo,
     chat_trace_repo,
     document_repo,
     knowledge_base_repo,
@@ -11,6 +12,7 @@ from app.repositories import (
 
 __all__ = [
     "agent_run_repo",
+    "audit_log_repo",
     "chat_trace_repo",
     "document_repo",
     "knowledge_base_repo",

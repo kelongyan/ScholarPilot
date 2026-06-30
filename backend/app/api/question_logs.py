@@ -13,7 +13,7 @@ from app.schemas.question_log import (
     QuestionLogListResponse,
     QuestionLogResponse,
 )
-from app.services import question_log_service
+from app.services import audit_log_service, question_log_service
 
 router = APIRouter(prefix="/question-logs", tags=["question-logs"])
 
@@ -60,5 +60,18 @@ async def upsert_feedback(
         question_log_id=question_log_id,
         useful=request.useful,
         citation_accurate=request.citation_accurate,
+    )
+    audit_log_service.try_log_event(
+        db,
+        action="feedback.submitted",
+        resource_type="answer_feedback",
+        resource_id=feedback.feedback_id,
+        knowledge_base_id=getattr(existing_log, "knowledge_base_id", None),
+        detail_json={
+            "question_log_id": question_log_id,
+            "doc_id": getattr(existing_log, "doc_id", None),
+            "useful": request.useful,
+            "citation_accurate": request.citation_accurate,
+        },
     )
     return AnswerFeedbackResponse.model_validate(feedback)

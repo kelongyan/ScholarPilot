@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
 import type { AgentRunListFilters, AgentRunResponse } from "@/lib/types";
 
@@ -35,6 +35,7 @@ export function AgentRunHistory({
   selectedRunId: string | null;
   onSelect: (run: AgentRunResponse) => void;
 }) {
+  const queryClient = useQueryClient();
   const [scopeToCurrentKb, setScopeToCurrentKb] = useState(true);
   const [route, setRoute] = useState("");
   const [status, setStatus] = useState("");
@@ -58,6 +59,14 @@ export function AgentRunHistory({
     queryKey: ["agent-runs", filters],
     queryFn: () => apiClient.listAgentRuns(filters),
     staleTime: 10_000,
+  });
+
+  const selectRunMutation = useMutation({
+    mutationFn: (runId: string) => apiClient.getAgentRun(runId),
+    onSuccess: (run) => {
+      onSelect(run);
+      queryClient.invalidateQueries({ queryKey: ["audit-logs"] });
+    },
   });
 
   const runs = data?.agent_runs ?? [];
@@ -154,7 +163,8 @@ export function AgentRunHistory({
             <li key={run.run_id}>
               <button
                 type="button"
-                onClick={() => onSelect(run)}
+                onClick={() => selectRunMutation.mutate(run.run_id)}
+                disabled={selectRunMutation.isPending}
                 className={`w-full rounded-md border p-2 text-left transition ${
                   selectedRunId === run.run_id
                     ? "border-zinc-900 bg-zinc-100 dark:border-zinc-100 dark:bg-zinc-800"
@@ -176,6 +186,10 @@ export function AgentRunHistory({
                   <span>{run.agent_steps.length} steps</span>
                   <span>{run.citations.length} citations</span>
                 </div>
+                {selectRunMutation.isPending &&
+                  selectRunMutation.variables === run.run_id && (
+                    <p className="mt-1 text-xs text-zinc-400">Loading detail...</p>
+                  )}
               </button>
             </li>
           ))}

@@ -1,6 +1,7 @@
 """ORM models."""
 
 from app.models.agent_run import AgentRun, AgentStep
+from app.models.audit_log import AuditLog
 from app.models.base import Base
 from app.models.chat_trace import ChatTrace
 from app.models.citation import Citation
@@ -12,6 +13,7 @@ from app.models.question_log import AnswerFeedback, QuestionLog
 __all__ = [
     "AgentRun",
     "AgentStep",
+    "AuditLog",
     "ChatTrace",
     "AnswerFeedback",
     "Base",

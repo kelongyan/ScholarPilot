@@ -2,6 +2,7 @@
 
 from app.services import (
     agent_service,
+    audit_log_service,
     chat_trace_service,
     document_service,
     knowledge_base_service,
@@ -11,6 +12,7 @@ from app.services import (
 
 __all__ = [
     "agent_service",
+    "audit_log_service",
     "chat_trace_service",
     "document_service",
     "knowledge_base_service",

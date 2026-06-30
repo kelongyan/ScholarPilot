@@ -7,6 +7,8 @@ import type {
   AgentRunListResponse,
   AgentRunRequest,
   AgentRunResponse,
+  AuditLogListFilters,
+  AuditLogListResponse,
   AnswerFeedbackRequest,
   AnswerFeedbackResponse,
   ChatRequest,
@@ -130,6 +132,22 @@ export class ApiClient {
       throw new Error(`Get Agent run failed: ${res.status}`);
     }
     return res.json() as Promise<AgentRunResponse>;
+  }
+
+  async listAuditLogs(
+    filters: AuditLogListFilters = {}
+  ): Promise<AuditLogListResponse> {
+    const url = new URL(`${this.baseUrl}/audit-logs`);
+    for (const [key, value] of Object.entries(filters)) {
+      if (value) {
+        url.searchParams.set(key, value);
+      }
+    }
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error(`List audit logs failed: ${res.status}`);
+    }
+    return res.json() as Promise<AuditLogListResponse>;
   }
 
   async listKnowledgeBases(): Promise<KnowledgeBaseListResponse> {

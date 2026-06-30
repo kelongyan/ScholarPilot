@@ -1,5 +1,6 @@
 """HTTP API routes."""
 
+from app.api.audit_logs import router as audit_logs_router
 from app.api.chat import router as chat_router
 from app.api.chat_traces import router as chat_traces_router
 from app.api.documents import router as documents_router
@@ -9,6 +10,7 @@ from app.api.knowledge_operations import router as knowledge_operations_router
 from app.api.question_logs import router as question_logs_router
 
 __all__ = [
+    "audit_logs_router",
     "chat_router",
     "chat_traces_router",
     "documents_router",

@@ -125,6 +125,31 @@ export interface AgentRunListFilters {
   created_to?: string | null;
 }
 
+export interface AuditLogResponse {
+  audit_id: string;
+  actor_id: string;
+  action: string;
+  resource_type: string;
+  resource_id: string;
+  knowledge_base_id?: string | null;
+  detail_json: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface AuditLogListResponse {
+  audit_logs: AuditLogResponse[];
+}
+
+export interface AuditLogListFilters {
+  knowledge_base_id?: string | null;
+  action?: string | null;
+  resource_type?: string | null;
+  resource_id?: string | null;
+  actor_id?: string | null;
+  created_from?: string | null;
+  created_to?: string | null;
+}
+
 export interface KnowledgeBaseResponse {
   knowledge_base_id: string;
   name: string;

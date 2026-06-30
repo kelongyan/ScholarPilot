@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.schemas.document import DocumentListResponse, DocumentResponse
-from app.services import document_service, knowledge_base_service
+from app.services import audit_log_service, document_service, knowledge_base_service
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -43,6 +43,19 @@ async def upload_document(
         db,
         file,
         knowledge_base_id=knowledge_base_id,
+    )
+    audit_log_service.try_log_event(
+        db,
+        action="document.uploaded",
+        resource_type="document",
+        resource_id=document.doc_id,
+        knowledge_base_id=document.knowledge_base_id,
+        detail_json={
+            "title": document.title,
+            "source": document.source,
+            "status": document.status,
+            "filename": file.filename or "",
+        },
     )
     return DocumentResponse.model_validate(document)
 
@@ -85,10 +98,24 @@ async def reindex_document(
     doc_id: str, db: Session = Depends(get_db)
 ) -> DocumentResponse:
     """Re-enqueue parsing/indexing for an existing document."""
+    existing = document_service.get_document(db, doc_id)
+    previous_status = getattr(existing, "status", "") if existing is not None else ""
     doc = document_service.reindex_document(db, doc_id)
     if doc is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Document not found: {doc_id}",
         )
+    audit_log_service.try_log_event(
+        db,
+        action="document.reindexed",
+        resource_type="document",
+        resource_id=doc.doc_id,
+        knowledge_base_id=doc.knowledge_base_id,
+        detail_json={
+            "previous_status": previous_status,
+            "status": doc.status,
+            "title": doc.title,
+        },
+    )
     return DocumentResponse.model_validate(doc)
