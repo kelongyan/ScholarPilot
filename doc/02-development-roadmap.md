@@ -43,7 +43,7 @@ Phase 5  Multi-Agent 协作引擎
 Phase 6  生产化、统计看板与扩展生态
 ```
 
-当前优先级：Phase 2 已完成收尾，进入 Phase 3 知识库产品层。
+当前优先级：Phase 5 已启动，先落地受控 Agent 工作流的最小可验证切片。
 
 技术采用原则：
 
@@ -215,7 +215,7 @@ Phase 6  生产化、统计看板与扩展生态
 
 ## 9. Phase 5：Multi-Agent 协作引擎
 
-状态：`Not Started`
+状态：`In Progress`
 
 目标：
 

@@ -1,5 +1,6 @@
 """Pydantic schemas (DTOs)."""
 
+from app.schemas.agent import AgentRunListResponse, AgentRunRequest, AgentRunResponse
 from app.schemas.chat import ChatRequest, ChatResponse, CitationResponse
 from app.schemas.chat_trace import ChatTraceListResponse, ChatTraceResponse
 from app.schemas.document import ChunkResponse, DocumentListResponse, DocumentResponse
@@ -18,6 +19,9 @@ from app.schemas.question_log import (
 )
 
 __all__ = [
+    "AgentRunListResponse",
+    "AgentRunRequest",
+    "AgentRunResponse",
     "ChatRequest",
     "ChatResponse",
     "ChatTraceListResponse",

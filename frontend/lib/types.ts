@@ -73,6 +73,45 @@ export interface ChatRequest {
   question: string;
 }
 
+export type AgentRunMode = "auto" | "short" | "multi_agent";
+
+export interface AgentRunRequest {
+  doc_id?: string | null;
+  knowledge_base_id?: string | null;
+  question: string;
+  mode?: AgentRunMode;
+  max_steps?: number;
+}
+
+export interface AgentStepResponse {
+  sequence: number;
+  agent_name: string;
+  status: string;
+  input_json: Record<string, unknown>;
+  output_json: Record<string, unknown>;
+  latency_ms: number;
+  error_message: string;
+}
+
+export interface AgentRunResponse {
+  run_id: string;
+  route: string;
+  status: string;
+  doc_id?: string | null;
+  knowledge_base_id?: string | null;
+  question: string;
+  answer: string;
+  answer_status: string;
+  citations: CitationResponse[];
+  trace?: RetrievalTraceResponse | null;
+  agent_steps: AgentStepResponse[];
+  question_log_id?: string | null;
+  chat_trace_id?: string | null;
+  total_latency_ms: number;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
 export interface KnowledgeBaseResponse {
   knowledge_base_id: string;
   name: string;

@@ -15,8 +15,8 @@
 当前代码状态判断：
 
 ```text
-核心 RAG 引擎已基本跑通；
-知识库产品层和知识运营闭环尚未建立。
+核心 RAG 引擎、知识库产品层和基础 trace 持久化已建立；
+Phase 5 受控 Agent 工作流已启动，P4 权限/审计/运营清单仍待补齐。
 ```
 
 ---
@@ -42,7 +42,7 @@
 | Phase 2 | Hybrid RAG and Trace Engine | `Done` | 2026-06-29 |
 | Phase 3 | Knowledge Base Product Layer | `Done` | 2026-06-30 |
 | Phase 4 | Knowledge Operations, Auth, Audit, Evaluation, Observability | `In Progress` | 2026-06-30 |
-| Phase 5 | Multi-Agent Orchestration | `Not Started` | 2026-06-29 |
+| Phase 5 | Multi-Agent Orchestration | `In Progress` | 2026-06-30 |
 | Phase 6 | Production, Dashboard, Extensions | `Not Started` | 2026-06-29 |
 
 ---
@@ -72,12 +72,68 @@
 | User auth and RBAC | Not started | Phase 4 |
 | Audit logs | Not started | Phase 4 |
 | SSE streaming | Not started | Future chat enhancement |
-| Multi-Agent workflow | Not started | Phase 5 |
+| Multi-Agent workflow | In progress | Controlled workflow API and step trace started in Phase 5 |
 | Dashboard | Not started | Phase 6 |
 
 ---
 
 ## 5. Progress Log
+
+### 2026-06-30 — Phase 5 started
+
+Started the controlled Multi-Agent orchestration phase with a bounded first slice.
+
+Implemented in this iteration:
+
+- Added persisted `agent_runs` and `agent_steps` models plus Alembic migration.
+- Added controlled Agent workflow service with planner, retrieval, analyst, writer, and reviewer steps.
+- Added automatic route selection: direct questions use the short route, analytical questions use the multi-agent route.
+- Added max-step enforcement and failure exit behavior.
+- Added `/agent-runs` create/list/detail API routes.
+- Reused the existing evidence-first RAG answer path so Agent outputs retain citations and retrieval trace.
+- Added frontend Chat/Agent mode selection and Agent step trace display.
+- Added tests for routing, max-step behavior, persistence serialization, and API routes.
+
+Verification recorded:
+
+```text
+cd backend
+.\.venv\Scripts\python.exe -m pytest
+# 42 passed, 1 warning
+.\.venv\Scripts\python.exe -m ruff check
+# All checks passed
+
+cd frontend
+pnpm lint
+# ok
+pnpm build
+# compiled successfully
+
+WSL:
+docker compose up -d
+# postgres/qdrant/redis healthy
+
+cd backend
+.\.venv\Scripts\python.exe -m alembic upgrade head
+# upgraded through 9b7a6c3d2e1f_add_agent_runs
+
+Runtime verification:
+- Restarted backend after Qdrant was healthy; previous Qdrant version warning no longer appears.
+- Windows backend verified with local Ollama at `LLM_BASE_URL=http://127.0.0.1:11434/v1` and model `qwen3:14b`.
+- Windows RQ worker still cannot process jobs because RQ uses `os.fork`; WSL worker is required.
+- Uploaded a PDF into a test knowledge base.
+- Processed indexing with WSL worker: document status `indexed`, page_count=1.
+- `/chat` returned citations=1, trace evidence=1, and a persisted question log.
+- `/agent-runs` selected `multi_agent`, completed 5 steps, returned citations=1, and persisted step trace.
+```
+
+Commit:
+
+```text
+Pending
+```
+
+---
 
 ### 2026-06-30 — Phase 4 started
 
@@ -110,7 +166,7 @@ pnpm build
 Commit:
 
 ```text
-Pending
+97eaf0c feat: start Phase 4 trace persistence
 ```
 
 ---
@@ -184,7 +240,7 @@ pnpm build
 Commit:
 
 ```text
-Pending
+f8b9aa7 feat: complete Phase 3 knowledge base layer
 ```
 
 ---
@@ -374,19 +430,13 @@ da3df08 feat: scaffold Phase 0 project foundation (backend + frontend)
 Next phase:
 
 ```text
-Phase 3: Knowledge Base Product Layer
+Phase 5: Multi-Agent Orchestration
 ```
 
-Recommended first tasks:
+Recommended next tasks:
 
-1. Add `KnowledgeBase` ORM model and Alembic migration.
-2. Add `knowledge_base_id` to documents.
-3. Add knowledge base repository, schemas, and API routes.
-4. Update upload API to require or default a knowledge base.
-5. Extend retrieval to accept `knowledge_base_id` and search all indexed documents in that scope.
-6. Extend `/chat` to support knowledge-base-level question answering while keeping `doc_id` compatibility.
-7. Record questions, answers, citations, evidence-insufficient cases, and basic user feedback.
-8. Update frontend to show knowledge bases, group documents, and collect minimal feedback.
-9. Add backend tests for knowledge base CRUD, document ownership, retrieval scope, and feedback recording.
-
-Do not start Multi-Agent implementation before this phase is stable.
+1. Apply the new `agent_runs` migration in a real local database.
+2. Run an end-to-end Agent workflow against an indexed knowledge base.
+3. Add richer Agent run list/detail UI for persisted run review.
+4. Decide whether the current in-repo state machine should be replaced by LangGraph after P5 contracts stabilize.
+5. Continue closing P4 gaps: auth/RBAC, audit logs, knowledge operations lists, and repeatable evaluation runs.

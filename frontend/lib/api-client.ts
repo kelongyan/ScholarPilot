@@ -3,6 +3,8 @@
  */
 
 import type {
+  AgentRunRequest,
+  AgentRunResponse,
   AnswerFeedbackRequest,
   AnswerFeedbackResponse,
   ChatRequest,
@@ -85,6 +87,20 @@ export class ApiClient {
       throw new Error(`Chat failed: ${res.status} ${detail}`);
     }
     return res.json() as Promise<ChatResponse>;
+  }
+
+  /** Run a controlled Agent workflow over a document or knowledge base. */
+  async runAgent(request: AgentRunRequest): Promise<AgentRunResponse> {
+    const res = await fetch(`${this.baseUrl}/agent-runs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    });
+    if (!res.ok) {
+      const detail = await res.text();
+      throw new Error(`Agent run failed: ${res.status} ${detail}`);
+    }
+    return res.json() as Promise<AgentRunResponse>;
   }
 
   async listKnowledgeBases(): Promise<KnowledgeBaseListResponse> {

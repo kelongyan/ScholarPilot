@@ -3,7 +3,15 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
-import type { ChatResponse, DocumentResponse, RetrievalTraceResponse } from "@/lib/types";
+import type {
+  AgentRunResponse,
+  AgentStepResponse,
+  ChatResponse,
+  DocumentResponse,
+  RetrievalTraceResponse,
+} from "@/lib/types";
+
+type AskMode = "chat" | "agent";
 
 interface Message {
   role: "user" | "assistant";
@@ -11,6 +19,9 @@ interface Message {
   citations?: ChatResponse["citations"];
   trace?: RetrievalTraceResponse | null;
   questionLogId?: string | null;
+  agentRunId?: string | null;
+  agentRoute?: string | null;
+  agentSteps?: AgentStepResponse[];
 }
 
 /**
@@ -27,37 +38,68 @@ export function ChatPanel({
   onAnswerArtifacts: (artifacts: {
     citations: ChatResponse["citations"];
     trace: RetrievalTraceResponse | null;
+    agentSteps?: AgentStepResponse[];
   }) => void;
 }) {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
+  const [askMode, setAskMode] = useState<AskMode>("chat");
   const [feedbackMessageId, setFeedbackMessageId] = useState<string | null>(null);
 
   const mutation = useMutation({
-    mutationFn: (question: string) =>
-      apiClient.chat({
+    mutationFn: async ({
+      question,
+      mode,
+    }: {
+      question: string;
+      mode: AskMode;
+    }): Promise<
+      | { kind: "chat"; data: ChatResponse }
+      | { kind: "agent"; data: AgentRunResponse }
+    > => {
+      const request = {
         doc_id: document?.doc_id ?? null,
         knowledge_base_id: document ? null : knowledgeBaseId,
         question,
-      }),
-    onSuccess: (data: ChatResponse, question: string) => {
+      };
+      if (mode === "agent") {
+        return {
+          kind: "agent",
+          data: await apiClient.runAgent({
+            ...request,
+            mode: "auto",
+            max_steps: 5,
+          }),
+        };
+      }
+      return { kind: "chat", data: await apiClient.chat(request) };
+    },
+    onSuccess: (result, variables) => {
+      const agentSteps = result.kind === "agent" ? result.data.agent_steps : [];
       setMessages((prev) => [
         ...prev,
-        { role: "user", content: question },
+        { role: "user", content: variables.question },
         {
           role: "assistant",
-          content: data.answer,
-          citations: data.citations,
-          trace: data.trace ?? null,
-          questionLogId: data.question_log_id ?? null,
+          content: result.data.answer,
+          citations: result.data.citations,
+          trace: result.data.trace ?? null,
+          questionLogId: result.data.question_log_id ?? null,
+          agentRunId: result.kind === "agent" ? result.data.run_id : null,
+          agentRoute: result.kind === "agent" ? result.data.route : null,
+          agentSteps,
         },
       ]);
-      onAnswerArtifacts({ citations: data.citations, trace: data.trace ?? null });
+      onAnswerArtifacts({
+        citations: result.data.citations,
+        trace: result.data.trace ?? null,
+        agentSteps,
+      });
     },
-    onError: (err: Error, question: string) => {
+    onError: (err: Error, variables) => {
       setMessages((prev) => [
         ...prev,
-        { role: "user", content: question },
+        { role: "user", content: variables.question },
         { role: "assistant", content: `Error: ${err.message}` },
       ]);
     },
@@ -87,7 +129,7 @@ export function ChatPanel({
     const question = input.trim();
     if (!question || mutation.isPending) return;
     setInput("");
-    mutation.mutate(question);
+    mutation.mutate({ question, mode: askMode });
   }
 
   const ready = document ? document.status === "indexed" : Boolean(knowledgeBaseId);
@@ -122,6 +164,27 @@ export function ChatPanel({
                     {msg.citations.length} citation(s)
                     {msg.trace ? " | trace ready" : ""}
                   </p>
+                )}
+                {msg.agentSteps && msg.agentSteps.length > 0 && (
+                  <div className="mt-2 rounded-md border border-zinc-200 bg-white/60 p-2 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900/50 dark:text-zinc-300">
+                    <div className="mb-1 flex items-center justify-between">
+                      <span>{msg.agentRoute ?? "agent"} route</span>
+                      <span>{msg.agentSteps.length} steps</span>
+                    </div>
+                    <ul className="flex flex-col gap-1">
+                      {msg.agentSteps.map((step) => (
+                        <li
+                          key={`${msg.agentRunId ?? "run"}-${step.sequence}`}
+                          className="flex items-center justify-between gap-2"
+                        >
+                          <span className="truncate">{step.agent_name}</span>
+                          <span className="shrink-0 text-zinc-400">
+                            {step.status} | {step.latency_ms}ms
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
                 {msg.role === "assistant" && msg.questionLogId && (
                   <div className="mt-2 flex flex-wrap gap-2 text-xs">
@@ -162,7 +225,7 @@ export function ChatPanel({
             ))}
             {mutation.isPending && (
               <li className="self-start rounded-lg bg-zinc-100 px-3 py-2 text-sm text-zinc-400 dark:bg-zinc-800">
-                Retrieving evidence...
+                {askMode === "agent" ? "Running Agent..." : "Retrieving evidence..."}
               </li>
             )}
           </ul>
@@ -170,6 +233,22 @@ export function ChatPanel({
       </div>
 
       <form onSubmit={handleSubmit} className="border-t border-zinc-200 p-3 dark:border-zinc-800">
+        <div className="mb-2 inline-flex rounded-md border border-zinc-300 bg-white p-0.5 text-xs dark:border-zinc-700 dark:bg-zinc-900">
+          {(["chat", "agent"] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => setAskMode(mode)}
+              className={`rounded px-3 py-1 font-medium ${
+                askMode === mode
+                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                  : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+              }`}
+            >
+              {mode === "chat" ? "Chat" : "Agent"}
+            </button>
+          ))}
+        </div>
         <div className="flex items-center gap-2">
           <input
             type="text"

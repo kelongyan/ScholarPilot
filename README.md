@@ -28,11 +28,11 @@ Next.js Web UI
   -> PostgreSQL / Qdrant / Redis
   -> Document Pipeline / Hybrid RAG / Feedback / Trace
   -> Knowledge Operations
-  -> Controlled Multi-Agent Workflow (later)
+  -> Controlled Multi-Agent Workflow
   -> LLM / Embedding / Reranker Providers
 ```
 
-The current implementation now contains the core single-document RAG and the knowledge-base layer. The next product phase is to add knowledge operations, trace persistence, evaluation, and access control.
+The current implementation now contains the core RAG engine, the knowledge-base layer, trace persistence, and the first controlled Agent workflow slice.
 
 ---
 
@@ -105,13 +105,13 @@ Long term: evaluate Docling, Langfuse/Phoenix, LiteLLM, OpenSearch/Elasticsearch
 | Phase 2 | Hybrid RAG and trace engine | `Done` |
 | Phase 3 | Knowledge base product layer | `Done` |
 | Phase 4 | Knowledge operations, auth, audit, evaluation, observability | `In Progress` |
-| Phase 5 | Multi-Agent orchestration | `Not Started` |
+| Phase 5 | Multi-Agent orchestration | `In Progress` |
 | Phase 6 | Production, dashboard, extensions | `Not Started` |
 
 Current priority:
 
 ```text
-Start Phase 4 knowledge operations, trace persistence, and access control
+Continue Phase 5 controlled Agent orchestration while closing remaining Phase 4 operations, auth, audit, and evaluation gaps
 ```
 
 ---
@@ -125,15 +125,15 @@ Start Phase 4 knowledge operations, trace persistence, and access control
 - Qdrant dense retrieval.
 - BM25 sparse retrieval, RRF fusion, reranker provider boundary.
 - Evidence Pack and retrieval trace returned by `/chat`.
+- Controlled `/agent-runs` workflow with planner, retrieval, analyst, writer, reviewer, and step trace.
 - Frontend document list, chat panel, citation panel, and trace summary.
 
 Not implemented yet:
 
 - Multi-format ingestion beyond PDF.
 - Knowledge gap tracking and richer operations views.
-- User auth, RBAC, audit logs.
-- Trace persistence and evaluation API.
-- Multi-Agent orchestration.
+- Full user auth, RBAC, audit logs, and evaluation API.
+- LangGraph-backed Agent runner.
 
 ---
 

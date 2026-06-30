@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type {
+  AgentStepResponse,
   CitationResponse,
   DocumentResponse,
   KnowledgeBaseResponse,
@@ -25,6 +26,7 @@ export default function Home() {
   const [selectedDoc, setSelectedDoc] = useState<DocumentResponse | null>(null);
   const [citations, setCitations] = useState<CitationResponse[]>([]);
   const [trace, setTrace] = useState<RetrievalTraceResponse | null>(null);
+  const [agentSteps, setAgentSteps] = useState<AgentStepResponse[]>([]);
 
   const selectedKnowledgeBaseId = selectedKnowledgeBase?.knowledge_base_id ?? null;
 
@@ -36,7 +38,7 @@ export default function Home() {
             Kairos
           </span>
           <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
-            Phase 3 | Knowledge Base
+            Phase 5 | Controlled Agents
           </span>
         </div>
         <div className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -64,6 +66,7 @@ export default function Home() {
                 setSelectedDoc(null);
                 setCitations([]);
                 setTrace(null);
+                setAgentSteps([]);
               }}
             />
             <DocumentList
@@ -73,11 +76,13 @@ export default function Home() {
                 setSelectedDoc(null);
                 setCitations([]);
                 setTrace(null);
+                setAgentSteps([]);
               }}
               onSelect={(doc) => {
                 setSelectedDoc(doc);
                 setCitations([]);
                 setTrace(null);
+                setAgentSteps([]);
               }}
             />
           </div>
@@ -87,15 +92,20 @@ export default function Home() {
           <ChatPanel
             document={selectedDoc}
             knowledgeBaseId={selectedKnowledgeBaseId}
-            onAnswerArtifacts={({ citations: nextCitations, trace: nextTrace }) => {
+            onAnswerArtifacts={({
+              citations: nextCitations,
+              trace: nextTrace,
+              agentSteps: nextAgentSteps,
+            }) => {
               setCitations(nextCitations);
               setTrace(nextTrace);
+              setAgentSteps(nextAgentSteps ?? []);
             }}
           />
         </main>
 
         <aside className="bg-white p-4 dark:bg-zinc-950">
-          <CitationPanel citations={citations} trace={trace} />
+          <CitationPanel citations={citations} trace={trace} agentSteps={agentSteps} />
         </aside>
       </div>
     </div>

@@ -1,19 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import type { CitationResponse, RetrievalTraceResponse } from "@/lib/types";
+import type {
+  AgentStepResponse,
+  CitationResponse,
+  RetrievalTraceResponse,
+} from "@/lib/types";
 
 /**
- * Citation / evidence panel: shows the source chunks supporting the latest
- * answer, with page numbers, scores, quoted original text, and a minimal
- * retrieval trace summary for Phase 2 Hybrid RAG.
+ * Citation / evidence panel: shows answer sources, retrieval trace, and Agent steps.
  */
 export function CitationPanel({
   citations,
   trace,
+  agentSteps,
 }: {
   citations: CitationResponse[];
   trace: RetrievalTraceResponse | null;
+  agentSteps: AgentStepResponse[];
 }) {
   const [showTrace, setShowTrace] = useState(false);
 
@@ -55,11 +59,42 @@ export function CitationPanel({
                 <p className="mb-1 text-xs text-zinc-500">{cite.section}</p>
               )}
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                “{cite.quote}”
+                &quot;{cite.quote}&quot;
               </p>
             </li>
           ))}
         </ul>
+      )}
+
+      {agentSteps.length > 0 && (
+        <div className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+            Agent Trace
+          </h3>
+          <ul className="flex flex-col gap-2">
+            {agentSteps.map((step) => (
+              <li
+                key={`${step.agent_name}-${step.sequence}`}
+                className="rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800"
+              >
+                <div className="mb-1 flex items-center justify-between gap-2 text-xs">
+                  <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                    {step.sequence}. {step.agent_name}
+                  </span>
+                  <span className="shrink-0 text-zinc-400">
+                    {step.status} | {step.latency_ms}ms
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  {formatStepSummary(step)}
+                </p>
+                {step.error_message && (
+                  <p className="mt-1 text-xs text-red-500">{step.error_message}</p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {showTrace && (
@@ -74,11 +109,15 @@ export function CitationPanel({
           ) : (
             <div className="flex flex-col gap-3 text-sm text-zinc-600 dark:text-zinc-400">
               <div>
-                <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Query</p>
+                <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                  Query
+                </p>
                 <p className="whitespace-pre-wrap">{trace.query}</p>
               </div>
               <div>
-                <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Rewritten query</p>
+                <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                  Rewritten query
+                </p>
                 <p className="whitespace-pre-wrap">{trace.rewritten_query}</p>
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs">
@@ -134,4 +173,21 @@ export function CitationPanel({
       )}
     </div>
   );
+}
+
+function formatStepSummary(step: AgentStepResponse): string {
+  const output = step.output_json;
+  if (typeof output.route === "string") {
+    return `route: ${output.route}`;
+  }
+  if (typeof output.evidence_count === "number") {
+    return `evidence: ${output.evidence_count}`;
+  }
+  if (typeof output.answer_status === "string") {
+    return `answer: ${output.answer_status}`;
+  }
+  if (typeof output.review_status === "string") {
+    return `review: ${output.review_status}`;
+  }
+  return step.status;
 }

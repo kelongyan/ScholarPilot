@@ -74,6 +74,11 @@ def answer_question(
         retrieval_kwargs["knowledge_base_id"] = knowledge_base_id
 
     retrieval = run_hybrid_retrieval(db, question=question, **retrieval_kwargs)
+    return answer_from_retrieval(question, retrieval)
+
+
+def answer_from_retrieval(question: str, retrieval: RetrievalResult) -> ChatResult:
+    """Generate a grounded answer from an already-built retrieval result."""
     if not retrieval.evidence_pack:
         return ChatResult(
             answer=(
