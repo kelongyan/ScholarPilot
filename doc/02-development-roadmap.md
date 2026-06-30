@@ -178,7 +178,7 @@ Phase 6  生产化、统计看板与扩展生态
 
 ## 8. Phase 4：知识运营、权限、审计、评测与可观测
 
-状态：`Not Started`
+状态：`In Progress`
 
 目标：
 

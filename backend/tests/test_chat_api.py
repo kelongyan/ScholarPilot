@@ -56,7 +56,7 @@ def _fake_question_log():
 def test_chat_returns_answer_and_citations(monkeypatch) -> None:
     """``POST /chat`` returns an answer grounded in retrieved evidence."""
     from app.repositories import document_repo
-    from app.services import chat_service, question_log_service
+    from app.services import chat_service, chat_trace_service, question_log_service
 
     class FakeDoc:
         status = "indexed"
@@ -86,6 +86,11 @@ def test_chat_returns_answer_and_citations(monkeypatch) -> None:
         question_log_service,
         "create_question_log",
         lambda *args, **kwargs: _fake_question_log(),
+    )
+    monkeypatch.setattr(
+        chat_trace_service,
+        "create_chat_trace",
+        lambda *args, **kwargs: None,
     )
 
     _setup_db_override()
@@ -149,7 +154,7 @@ def test_chat_returns_404_for_missing_document(monkeypatch) -> None:
 def test_chat_handles_no_evidence(monkeypatch) -> None:
     """When retrieval returns nothing, the answer states evidence is insufficient."""
     from app.repositories import document_repo
-    from app.services import chat_service, question_log_service
+    from app.services import chat_service, chat_trace_service, question_log_service
 
     class FakeDoc:
         status = "indexed"
@@ -172,6 +177,11 @@ def test_chat_handles_no_evidence(monkeypatch) -> None:
         "create_question_log",
         lambda *args, **kwargs: _fake_question_log(),
     )
+    monkeypatch.setattr(
+        chat_trace_service,
+        "create_chat_trace",
+        lambda *args, **kwargs: None,
+    )
 
     _setup_db_override()
     try:
@@ -192,7 +202,7 @@ def test_chat_handles_no_evidence(monkeypatch) -> None:
 def test_chat_supports_knowledge_base_scope(monkeypatch) -> None:
     """``POST /chat`` supports knowledge-base-level questions."""
     from app.repositories import knowledge_base_repo
-    from app.services import chat_service, question_log_service
+    from app.services import chat_service, chat_trace_service, question_log_service
 
     class FakeKB:
         knowledge_base_id = "kb-1"
@@ -224,6 +234,11 @@ def test_chat_supports_knowledge_base_scope(monkeypatch) -> None:
         question_log_service,
         "create_question_log",
         lambda *args, **kwargs: _fake_question_log(),
+    )
+    monkeypatch.setattr(
+        chat_trace_service,
+        "create_chat_trace",
+        lambda *args, **kwargs: None,
     )
 
     _setup_db_override()

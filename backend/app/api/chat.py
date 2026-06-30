@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.repositories import document_repo, knowledge_base_repo
 from app.schemas.chat import ChatRequest, ChatResponse, CitationResponse
-from app.services import chat_service, question_log_service
+from app.services import chat_service, chat_trace_service, question_log_service
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -74,6 +74,15 @@ async def chat(
             citations_json=[citation.model_dump() for citation in citations],
         )
         question_log_id = question_log.question_log_id
+        chat_trace_service.create_chat_trace(
+            db,
+            question_log_id=question_log_id,
+            query=request.question,
+            result=result,
+            retrieval=result.retrieval,
+            model="",
+            latency_ms=0,
+        )
     except Exception:  # noqa: BLE001
         question_log_id = None
     return ChatResponse(

@@ -46,6 +46,7 @@ class ChatResult:
     answer: str
     citations: list
     trace: RetrievalTraceResponse
+    retrieval: RetrievalResult
     answer_status: str = "answered"
 
 
@@ -82,6 +83,7 @@ def answer_question(
             ),
             citations=[],
             trace=retrieval.to_trace(question),
+            retrieval=retrieval,
             answer_status="insufficient_evidence",
         )
 
@@ -97,6 +99,7 @@ def answer_question(
         answer=answer,
         citations=[item.chunk for item in retrieval.evidence_pack],
         trace=retrieval.to_trace(question),
+        retrieval=retrieval,
         answer_status="answered",
     )
 

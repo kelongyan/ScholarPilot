@@ -104,7 +104,7 @@ Long term: evaluate Docling, Langfuse/Phoenix, LiteLLM, OpenSearch/Elasticsearch
 | Phase 1 | Core RAG loop | `Done` |
 | Phase 2 | Hybrid RAG and trace engine | `Done` |
 | Phase 3 | Knowledge base product layer | `Done` |
-| Phase 4 | Knowledge operations, auth, audit, evaluation, observability | `Not Started` |
+| Phase 4 | Knowledge operations, auth, audit, evaluation, observability | `In Progress` |
 | Phase 5 | Multi-Agent orchestration | `Not Started` |
 | Phase 6 | Production, dashboard, extensions | `Not Started` |
 

@@ -41,7 +41,7 @@
 | Phase 1 | Core RAG Loop | `Done` | 2026-06-29 |
 | Phase 2 | Hybrid RAG and Trace Engine | `Done` | 2026-06-29 |
 | Phase 3 | Knowledge Base Product Layer | `Done` | 2026-06-30 |
-| Phase 4 | Knowledge Operations, Auth, Audit, Evaluation, Observability | `Not Started` | 2026-06-29 |
+| Phase 4 | Knowledge Operations, Auth, Audit, Evaluation, Observability | `In Progress` | 2026-06-30 |
 | Phase 5 | Multi-Agent Orchestration | `Not Started` | 2026-06-29 |
 | Phase 6 | Production, Dashboard, Extensions | `Not Started` | 2026-06-29 |
 
@@ -63,7 +63,7 @@
 | RRF fusion | Implemented | Phase 2 code |
 | Reranker provider boundary | Implemented | deterministic fallback only |
 | Evidence Pack | Implemented | Returned in trace |
-| Retrieval trace | Implemented | Returned by `/chat`, not persisted |
+| Retrieval trace | In progress | Returned by `/chat`; persistence started in Phase 4 |
 | Knowledge base entity | Done | Phase 3 |
 | Knowledge-base-level QA | Done | Phase 3 |
 | User feedback | Done | Phase 3 |
@@ -78,6 +78,42 @@
 ---
 
 ## 5. Progress Log
+
+### 2026-06-30 — Phase 4 started
+
+Started the Knowledge Operations, Auth, Audit, Evaluation, and Observability phase.
+
+Implemented in this iteration:
+
+- Added persisted chat trace model, migration, repository, service, and API routes.
+- Added `/chat-traces` list and detail endpoints.
+- Extended `/chat` to persist retrieval trace artifacts after a question log is created.
+- Persisted query, rewritten query, dense/sparse/fused/reranked results, Evidence Pack, answer, citations, status, model placeholder, and latency placeholder.
+- Added tests for chat trace serialization and trace API routes.
+
+Verification recorded:
+
+```text
+cd backend
+uv run python -m pytest
+# 35 passed, 1 warning
+uv run python -m ruff check
+# All checks passed
+
+cd frontend
+pnpm lint
+# ok
+pnpm build
+# compiled successfully
+```
+
+Commit:
+
+```text
+Pending
+```
+
+---
 
 ### 2026-06-29 — Product reposition and documentation baseline
 
