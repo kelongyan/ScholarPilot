@@ -7,6 +7,11 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.auth import (
+    CurrentUser,
+    require_knowledge_base_access,
+    require_min_role,
+)
 from app.core.db import get_db
 from app.repositories import document_repo, knowledge_base_repo
 from app.schemas.agent import AgentRunListResponse, AgentRunRequest, AgentRunResponse
@@ -28,9 +33,11 @@ router = APIRouter(prefix="/agent-runs", tags=["agent-runs"])
 async def run_agent(
     request: AgentRunRequest,
     db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_min_role("kb_manager")),
 ) -> AgentRunResponse:
     """Run a bounded Agent workflow against a document or knowledge base."""
     doc_id, knowledge_base_id = _validate_scope(request, db)
+    require_knowledge_base_access(current_user, knowledge_base_id)
     result = agent_service.run_agent_workflow(
         db=db,
         question=request.question,
@@ -80,6 +87,7 @@ async def run_agent(
         resource_type="agent_run",
         resource_id=result.run_id,
         knowledge_base_id=result.knowledge_base_id,
+        actor_id=current_user.actor_id,
         detail_json={
             "doc_id": result.doc_id,
             "route": result.route,
@@ -105,8 +113,25 @@ async def list_agent_runs(
     created_from: datetime | None = None,
     created_to: datetime | None = None,
     db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_min_role("kb_manager")),
 ) -> AgentRunListResponse:
     """List persisted Agent runs."""
+    require_knowledge_base_access(current_user, knowledge_base_id)
+    if knowledge_base_id is None and current_user.knowledge_base_ids is not None:
+        runs = []
+        for allowed_knowledge_base_id in sorted(current_user.knowledge_base_ids):
+            runs.extend(
+                agent_service.list_agent_run_responses(
+                    db,
+                    knowledge_base_id=allowed_knowledge_base_id,
+                    route=route,
+                    status=status,
+                    answer_status=answer_status,
+                    created_from=created_from,
+                    created_to=created_to,
+                )
+            )
+        return AgentRunListResponse(agent_runs=runs)
     return AgentRunListResponse(
         agent_runs=agent_service.list_agent_run_responses(
             db,
@@ -124,6 +149,7 @@ async def list_agent_runs(
 async def get_agent_run(
     run_id: str,
     db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_min_role("kb_manager")),
 ) -> AgentRunResponse:
     """Get a persisted Agent run with step trace."""
     result = agent_service.get_agent_run_response(db, run_id)
@@ -132,12 +158,14 @@ async def get_agent_run(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Agent run not found: {run_id}",
         )
+    require_knowledge_base_access(current_user, result.knowledge_base_id)
     audit_log_service.try_log_event(
         db,
         action="agent_run.viewed",
         resource_type="agent_run",
         resource_id=result.run_id,
         knowledge_base_id=result.knowledge_base_id,
+        actor_id=current_user.actor_id,
         detail_json={
             "doc_id": result.doc_id,
             "route": result.route,

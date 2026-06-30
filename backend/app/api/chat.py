@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.auth import CurrentUser, require_knowledge_base_access, require_min_role
 from app.core.db import get_db
 from app.repositories import document_repo, knowledge_base_repo
 from app.schemas.chat import ChatRequest, ChatResponse, CitationResponse
@@ -17,6 +18,7 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 async def chat(
     request: ChatRequest,
     db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_min_role("user")),
 ) -> ChatResponse:
     """Answer a question about a document or knowledge base."""
     if request.doc_id:
@@ -32,6 +34,7 @@ async def chat(
                 detail=f"Document is not indexed (status: {doc.status}). "
                 "Wait for indexing to complete.",
             )
+        require_knowledge_base_access(current_user, getattr(doc, "knowledge_base_id", None))
         result = chat_service.answer_question(
             request.question,
             db=db,
@@ -46,6 +49,7 @@ async def chat(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Knowledge base not found: {request.knowledge_base_id}",
             )
+        require_knowledge_base_access(current_user, request.knowledge_base_id)
         result = chat_service.answer_question(
             request.question,
             db=db,

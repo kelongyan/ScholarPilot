@@ -13,6 +13,7 @@ import type {
   AnswerFeedbackResponse,
   ChatRequest,
   ChatResponse,
+  CurrentUserResponse,
   DocumentListResponse,
   DocumentResponse,
   EvaluationDatasetDetailResponse,
@@ -32,9 +33,25 @@ import type {
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+const AUTH_TOKEN = process.env.NEXT_PUBLIC_KAIROS_AUTH_TOKEN ?? "";
 
 export class ApiClient {
-  constructor(private readonly baseUrl: string = API_BASE_URL) {}
+  constructor(
+    private readonly baseUrl: string = API_BASE_URL,
+    private readonly authToken: string = AUTH_TOKEN
+  ) {}
+
+  private headers(init?: HeadersInit): HeadersInit {
+    const headers = new Headers(init);
+    if (this.authToken) {
+      headers.set("Authorization", `Bearer ${this.authToken}`);
+    }
+    return headers;
+  }
+
+  private jsonHeaders(): HeadersInit {
+    return this.headers({ "Content-Type": "application/json" });
+  }
 
   /** Check whether the backend is reachable. */
   async health(): Promise<{ status: string }> {
@@ -43,6 +60,16 @@ export class ApiClient {
       throw new Error(`Health check failed: ${res.status}`);
     }
     return res.json() as Promise<{ status: string }>;
+  }
+
+  async getCurrentUser(): Promise<CurrentUserResponse> {
+    const res = await fetch(`${this.baseUrl}/auth/me`, {
+      headers: this.headers(),
+    });
+    if (!res.ok) {
+      throw new Error(`Get current user failed: ${res.status}`);
+    }
+    return res.json() as Promise<CurrentUserResponse>;
   }
 
   /** Upload a PDF and start async processing. */
@@ -57,6 +84,7 @@ export class ApiClient {
     }
     const res = await fetch(`${this.baseUrl}/documents/upload`, {
       method: "POST",
+      headers: this.headers(),
       body: form,
     });
     if (!res.ok) {
@@ -72,7 +100,7 @@ export class ApiClient {
     if (knowledgeBaseId) {
       url.searchParams.set("knowledge_base_id", knowledgeBaseId);
     }
-    const res = await fetch(url);
+    const res = await fetch(url, { headers: this.headers() });
     if (!res.ok) {
       throw new Error(`List failed: ${res.status}`);
     }
@@ -81,7 +109,9 @@ export class ApiClient {
 
   /** Get a document's metadata and status. */
   async getDocument(docId: string): Promise<DocumentResponse> {
-    const res = await fetch(`${this.baseUrl}/documents/${docId}`);
+    const res = await fetch(`${this.baseUrl}/documents/${docId}`, {
+      headers: this.headers(),
+    });
     if (!res.ok) {
       throw new Error(`Get document failed: ${res.status}`);
     }
@@ -92,7 +122,7 @@ export class ApiClient {
   async chat(request: ChatRequest): Promise<ChatResponse> {
     const res = await fetch(`${this.baseUrl}/chat`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: this.jsonHeaders(),
       body: JSON.stringify(request),
     });
     if (!res.ok) {
@@ -106,7 +136,7 @@ export class ApiClient {
   async runAgent(request: AgentRunRequest): Promise<AgentRunResponse> {
     const res = await fetch(`${this.baseUrl}/agent-runs`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: this.jsonHeaders(),
       body: JSON.stringify(request),
     });
     if (!res.ok) {
@@ -125,7 +155,7 @@ export class ApiClient {
         url.searchParams.set(key, value);
       }
     }
-    const res = await fetch(url);
+    const res = await fetch(url, { headers: this.headers() });
     if (!res.ok) {
       throw new Error(`List Agent runs failed: ${res.status}`);
     }
@@ -133,7 +163,9 @@ export class ApiClient {
   }
 
   async getAgentRun(runId: string): Promise<AgentRunResponse> {
-    const res = await fetch(`${this.baseUrl}/agent-runs/${runId}`);
+    const res = await fetch(`${this.baseUrl}/agent-runs/${runId}`, {
+      headers: this.headers(),
+    });
     if (!res.ok) {
       throw new Error(`Get Agent run failed: ${res.status}`);
     }
@@ -149,7 +181,7 @@ export class ApiClient {
         url.searchParams.set(key, value);
       }
     }
-    const res = await fetch(url);
+    const res = await fetch(url, { headers: this.headers() });
     if (!res.ok) {
       throw new Error(`List audit logs failed: ${res.status}`);
     }
@@ -157,7 +189,9 @@ export class ApiClient {
   }
 
   async listEvaluationDatasets(): Promise<EvaluationDatasetListResponse> {
-    const res = await fetch(`${this.baseUrl}/evaluations/datasets`);
+    const res = await fetch(`${this.baseUrl}/evaluations/datasets`, {
+      headers: this.headers(),
+    });
     if (!res.ok) {
       throw new Error(`List evaluation datasets failed: ${res.status}`);
     }
@@ -167,7 +201,9 @@ export class ApiClient {
   async getEvaluationDataset(
     datasetKey: string
   ): Promise<EvaluationDatasetDetailResponse> {
-    const res = await fetch(`${this.baseUrl}/evaluations/datasets/${datasetKey}`);
+    const res = await fetch(`${this.baseUrl}/evaluations/datasets/${datasetKey}`, {
+      headers: this.headers(),
+    });
     if (!res.ok) {
       throw new Error(`Get evaluation dataset failed: ${res.status}`);
     }
@@ -179,7 +215,7 @@ export class ApiClient {
   ): Promise<EvaluationRunResponse> {
     const res = await fetch(`${this.baseUrl}/evaluations/runs`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: this.jsonHeaders(),
       body: JSON.stringify(request),
     });
     if (!res.ok) {
@@ -198,7 +234,7 @@ export class ApiClient {
         url.searchParams.set(key, value);
       }
     }
-    const res = await fetch(url);
+    const res = await fetch(url, { headers: this.headers() });
     if (!res.ok) {
       throw new Error(`List evaluation runs failed: ${res.status}`);
     }
@@ -206,7 +242,9 @@ export class ApiClient {
   }
 
   async getEvaluationRun(runId: string): Promise<EvaluationRunResponse> {
-    const res = await fetch(`${this.baseUrl}/evaluations/runs/${runId}`);
+    const res = await fetch(`${this.baseUrl}/evaluations/runs/${runId}`, {
+      headers: this.headers(),
+    });
     if (!res.ok) {
       throw new Error(`Get evaluation run failed: ${res.status}`);
     }
@@ -214,7 +252,9 @@ export class ApiClient {
   }
 
   async listKnowledgeBases(): Promise<KnowledgeBaseListResponse> {
-    const res = await fetch(`${this.baseUrl}/knowledge-bases`);
+    const res = await fetch(`${this.baseUrl}/knowledge-bases`, {
+      headers: this.headers(),
+    });
     if (!res.ok) {
       throw new Error(`List knowledge bases failed: ${res.status}`);
     }
@@ -226,7 +266,7 @@ export class ApiClient {
   ): Promise<KnowledgeBaseResponse> {
     const res = await fetch(`${this.baseUrl}/knowledge-bases`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: this.jsonHeaders(),
       body: JSON.stringify(request),
     });
     if (!res.ok) {
@@ -242,7 +282,7 @@ export class ApiClient {
   ): Promise<KnowledgeBaseResponse> {
     const res = await fetch(`${this.baseUrl}/knowledge-bases/${knowledgeBaseId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: this.jsonHeaders(),
       body: JSON.stringify(request),
     });
     if (!res.ok) {
@@ -258,7 +298,7 @@ export class ApiClient {
   ): Promise<AnswerFeedbackResponse> {
     const res = await fetch(`${this.baseUrl}/question-logs/${questionLogId}/feedback`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: this.jsonHeaders(),
       body: JSON.stringify(request),
     });
     if (!res.ok) {
@@ -279,7 +319,7 @@ export class ApiClient {
     if (status) {
       url.searchParams.set("status", status);
     }
-    const res = await fetch(url);
+    const res = await fetch(url, { headers: this.headers() });
     if (!res.ok) {
       throw new Error(`List knowledge operation items failed: ${res.status}`);
     }
@@ -292,7 +332,7 @@ export class ApiClient {
   ): Promise<KnowledgeOperationItemResponse> {
     const res = await fetch(`${this.baseUrl}/knowledge-operations/items/${itemId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: this.jsonHeaders(),
       body: JSON.stringify(request),
     });
     if (!res.ok) {

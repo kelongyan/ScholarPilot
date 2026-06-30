@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import type {
   AgentRunResponse,
   AgentStepResponse,
@@ -9,6 +10,8 @@ import type {
   KnowledgeBaseResponse,
   RetrievalTraceResponse,
 } from "@/lib/types";
+import { apiClient } from "@/lib/api-client";
+import { canAdminister, canManageKnowledge } from "@/lib/auth";
 import { KnowledgeBasePanel } from "@/components/knowledge-base/knowledge-base-panel";
 import { DocumentList } from "@/components/document/document-list";
 import { ChatPanel } from "@/components/chat/chat-panel";
@@ -34,6 +37,14 @@ export default function Home() {
   const [agentSteps, setAgentSteps] = useState<AgentStepResponse[]>([]);
   const [selectedAgentRunId, setSelectedAgentRunId] = useState<string | null>(null);
 
+  const currentUserQuery = useQuery({
+    queryKey: ["auth-me"],
+    queryFn: () => apiClient.getCurrentUser(),
+    staleTime: 60_000,
+  });
+  const currentUser = currentUserQuery.data ?? null;
+  const canManage = canManageKnowledge(currentUser);
+  const canAdmin = canAdminister(currentUser);
   const selectedKnowledgeBaseId = selectedKnowledgeBase?.knowledge_base_id ?? null;
 
   return (
@@ -67,6 +78,7 @@ export default function Home() {
           <div className="flex flex-col gap-4">
             <KnowledgeBasePanel
               selectedKnowledgeBaseId={selectedKnowledgeBaseId}
+              canManage={canManage}
               onSelect={(kb) => {
                 setSelectedKnowledgeBase(kb);
                 setSelectedDoc(null);
@@ -79,6 +91,7 @@ export default function Home() {
             <DocumentList
               selectedDocId={selectedDoc?.doc_id ?? null}
               knowledgeBaseId={selectedKnowledgeBaseId}
+              canManage={canManage}
               onClearSelection={() => {
                 setSelectedDoc(null);
                 setCitations([]);
@@ -94,7 +107,9 @@ export default function Home() {
                 setSelectedAgentRunId(null);
               }}
             />
-            <KnowledgeOperationsPanel knowledgeBaseId={selectedKnowledgeBaseId} />
+            {canManage && (
+              <KnowledgeOperationsPanel knowledgeBaseId={selectedKnowledgeBaseId} />
+            )}
           </div>
         </aside>
 
@@ -102,6 +117,7 @@ export default function Home() {
           <ChatPanel
             document={selectedDoc}
             knowledgeBaseId={selectedKnowledgeBaseId}
+            canRunAgent={canManage}
             onAnswerArtifacts={({
               citations: nextCitations,
               trace: nextTrace,
@@ -118,18 +134,20 @@ export default function Home() {
 
         <aside className="bg-white p-4 dark:bg-zinc-950">
           <div className="flex flex-col gap-4">
-            <AgentRunHistory
-              knowledgeBaseId={selectedKnowledgeBaseId}
-              selectedRunId={selectedAgentRunId}
-              onSelect={(run: AgentRunResponse) => {
-                setSelectedAgentRunId(run.run_id);
-                setCitations(run.citations);
-                setTrace(run.trace ?? null);
-                setAgentSteps(run.agent_steps);
-              }}
-            />
-            <AuditLogPanel knowledgeBaseId={selectedKnowledgeBaseId} />
-            <EvaluationPanel knowledgeBaseId={selectedKnowledgeBaseId} />
+            {canManage && (
+              <AgentRunHistory
+                knowledgeBaseId={selectedKnowledgeBaseId}
+                selectedRunId={selectedAgentRunId}
+                onSelect={(run: AgentRunResponse) => {
+                  setSelectedAgentRunId(run.run_id);
+                  setCitations(run.citations);
+                  setTrace(run.trace ?? null);
+                  setAgentSteps(run.agent_steps);
+                }}
+              />
+            )}
+            {canAdmin && <AuditLogPanel knowledgeBaseId={selectedKnowledgeBaseId} />}
+            {canManage && <EvaluationPanel knowledgeBaseId={selectedKnowledgeBaseId} />}
             <CitationPanel citations={citations} trace={trace} agentSteps={agentSteps} />
           </div>
         </aside>

@@ -7,6 +7,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.core.auth import CurrentUser, require_min_role
 from app.core.db import get_db
 from app.schemas.audit_log import AuditLogListResponse, AuditLogResponse
 from app.services import audit_log_service
@@ -24,8 +25,10 @@ async def list_audit_logs(
     created_from: datetime | None = None,
     created_to: datetime | None = None,
     db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_min_role("admin")),
 ) -> AuditLogListResponse:
     """List audit logs with optional filters."""
+    _ = current_user
     logs = audit_log_service.list_audit_logs(
         db,
         knowledge_base_id=knowledge_base_id,

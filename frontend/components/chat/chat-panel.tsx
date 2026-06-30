@@ -31,10 +31,12 @@ interface Message {
 export function ChatPanel({
   document,
   knowledgeBaseId,
+  canRunAgent,
   onAnswerArtifacts,
 }: {
   document: DocumentResponse | null;
   knowledgeBaseId: string | null;
+  canRunAgent: boolean;
   onAnswerArtifacts: (artifacts: {
     citations: ChatResponse["citations"];
     trace: RetrievalTraceResponse | null;
@@ -243,7 +245,9 @@ export function ChatPanel({
 
       <form onSubmit={handleSubmit} className="border-t border-zinc-200 p-3 dark:border-zinc-800">
         <div className="mb-2 inline-flex rounded-md border border-zinc-300 bg-white p-0.5 text-xs dark:border-zinc-700 dark:bg-zinc-900">
-          {(["chat", "agent"] as const).map((mode) => (
+          {(["chat", "agent"] as const)
+            .filter((mode) => mode === "chat" || canRunAgent)
+            .map((mode) => (
             <button
               key={mode}
               type="button"

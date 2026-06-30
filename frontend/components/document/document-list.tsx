@@ -21,11 +21,13 @@ const STATUS_STYLES: Record<DocumentStatus, string> = {
 export function DocumentList({
   selectedDocId,
   knowledgeBaseId,
+  canManage,
   onClearSelection,
   onSelect,
 }: {
   selectedDocId: string | null;
   knowledgeBaseId: string | null;
+  canManage: boolean;
   onClearSelection: () => void;
   onSelect: (doc: DocumentResponse) => void;
 }) {
@@ -45,7 +47,7 @@ export function DocumentList({
 
   return (
     <div className="flex flex-col gap-3">
-      <UploadPanel knowledgeBaseId={knowledgeBaseId} />
+      {canManage && <UploadPanel knowledgeBaseId={knowledgeBaseId} />}
 
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">

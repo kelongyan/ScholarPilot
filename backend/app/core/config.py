@@ -65,6 +65,16 @@ class Settings(BaseSettings):
     # --- Async (RQ) ---
     rq_queue_name: str = "default"
 
+    # --- Auth / RBAC ---
+    # Disabled by default so local development and existing tests keep working
+    # until explicit tokens or JWT are configured.
+    auth_enabled: bool = False
+    auth_jwt_secret: str = ""
+    auth_admin_token: str = ""
+    auth_kb_manager_token: str = ""
+    auth_user_token: str = ""
+    auth_dev_actor_id: str = "system"
+
 
 @lru_cache
 def get_settings() -> Settings:

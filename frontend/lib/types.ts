@@ -150,6 +150,15 @@ export interface AuditLogListFilters {
   created_to?: string | null;
 }
 
+export type UserRole = "user" | "kb_manager" | "admin";
+
+export interface CurrentUserResponse {
+  actor_id: string;
+  role: UserRole;
+  knowledge_base_ids?: string[] | null;
+  auth_enabled: boolean;
+}
+
 export interface EvaluationDatasetQuestionResponse {
   sequence: number;
   question: string;

@@ -7,6 +7,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.auth import CurrentUser, require_knowledge_base_access, require_min_role
 from app.core.db import get_db
 from app.repositories import document_repo, knowledge_base_repo
 from app.schemas.evaluation import (
@@ -23,8 +24,12 @@ router = APIRouter(prefix="/evaluations", tags=["evaluations"])
 
 
 @router.get("/datasets", response_model=EvaluationDatasetListResponse)
-async def list_datasets(db: Session = Depends(get_db)) -> EvaluationDatasetListResponse:
+async def list_datasets(
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_min_role("user")),
+) -> EvaluationDatasetListResponse:
     """List evaluation datasets."""
+    _ = current_user
     return EvaluationDatasetListResponse(
         evaluation_datasets=evaluation_service.list_datasets(db)
     )
@@ -34,8 +39,10 @@ async def list_datasets(db: Session = Depends(get_db)) -> EvaluationDatasetListR
 async def get_dataset(
     dataset_key: str,
     db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_min_role("user")),
 ) -> EvaluationDatasetDetailResponse:
     """Get a dataset and its questions."""
+    _ = current_user
     dataset = evaluation_service.get_dataset_detail(db, dataset_key)
     if dataset is None:
         raise HTTPException(
@@ -49,9 +56,11 @@ async def get_dataset(
 async def create_run(
     request: EvaluationRunCreateRequest,
     db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_min_role("kb_manager")),
 ) -> EvaluationRunResponse:
     """Execute a repeatable evaluation run."""
     request = _validate_scope(request, db)
+    require_knowledge_base_access(current_user, request.knowledge_base_id)
     try:
         run = evaluation_service.run_evaluation(db, request)
     except ValueError as exc:
@@ -62,6 +71,7 @@ async def create_run(
         resource_type="evaluation_run",
         resource_id=run.run_id,
         knowledge_base_id=run.knowledge_base_id,
+        actor_id=current_user.actor_id,
         detail_json={
             "dataset_key": run.dataset_key,
             "doc_id": run.doc_id,
@@ -87,8 +97,26 @@ async def list_runs(
     created_from: datetime | None = None,
     created_to: datetime | None = None,
     db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_min_role("kb_manager")),
 ) -> EvaluationRunListResponse:
     """List persisted evaluation runs."""
+    require_knowledge_base_access(current_user, knowledge_base_id)
+    if knowledge_base_id is None and current_user.knowledge_base_ids is not None:
+        runs = []
+        for allowed_knowledge_base_id in sorted(current_user.knowledge_base_ids):
+            runs.extend(
+                evaluation_service.list_runs(
+                    db,
+                    dataset_key=dataset_key,
+                    knowledge_base_id=allowed_knowledge_base_id,
+                    doc_id=doc_id,
+                    execution_mode=execution_mode,
+                    status=status,
+                    created_from=created_from,
+                    created_to=created_to,
+                )
+            )
+        return EvaluationRunListResponse(evaluation_runs=runs)
     return EvaluationRunListResponse(
         evaluation_runs=evaluation_service.list_runs(
             db,
@@ -107,6 +135,7 @@ async def list_runs(
 async def get_run(
     run_id: str,
     db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_min_role("kb_manager")),
 ) -> EvaluationRunResponse:
     """Get a persisted evaluation run with its question results."""
     run = evaluation_service.get_run_response(db, run_id)
@@ -115,12 +144,14 @@ async def get_run(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Evaluation run not found: {run_id}",
         )
+    require_knowledge_base_access(current_user, run.knowledge_base_id)
     audit_log_service.try_log_event(
         db,
         action="evaluation_run.viewed",
         resource_type="evaluation_run",
         resource_id=run.run_id,
         knowledge_base_id=run.knowledge_base_id,
+        actor_id=current_user.actor_id,
         detail_json={
             "dataset_key": run.dataset_key,
             "doc_id": run.doc_id,

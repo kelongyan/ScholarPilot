@@ -17,6 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.agent_runs import router as agent_runs_router
 from app.api.audit_logs import router as audit_logs_router
+from app.api.auth import router as auth_router
 from app.api.chat import router as chat_router
 from app.api.chat_traces import router as chat_traces_router
 from app.api.documents import router as documents_router
@@ -60,6 +61,7 @@ app.add_middleware(
 )
 
 app.include_router(health_router)
+app.include_router(auth_router)
 app.include_router(knowledge_bases_router)
 app.include_router(knowledge_operations_router)
 app.include_router(audit_logs_router)

@@ -7,9 +7,11 @@ import type { KnowledgeBaseResponse } from "@/lib/types";
 
 export function KnowledgeBasePanel({
   selectedKnowledgeBaseId,
+  canManage,
   onSelect,
 }: {
   selectedKnowledgeBaseId: string | null;
+  canManage: boolean;
   onSelect: (kb: KnowledgeBaseResponse) => void;
 }) {
   const queryClient = useQueryClient();
@@ -65,22 +67,24 @@ export function KnowledgeBasePanel({
         </p>
       )}
 
-      <div className="flex gap-2">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="New knowledge base"
-          className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-        />
-        <button
-          type="button"
-          onClick={() => mutation.mutate()}
-          disabled={!name.trim() || mutation.isPending}
-          className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white disabled:bg-zinc-200 disabled:text-zinc-400 dark:bg-zinc-100 dark:text-zinc-900 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-600"
-        >
-          Create
-        </button>
-      </div>
+      {canManage && (
+        <div className="flex gap-2">
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="New knowledge base"
+            className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+          />
+          <button
+            type="button"
+            onClick={() => mutation.mutate()}
+            disabled={!name.trim() || mutation.isPending}
+            className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white disabled:bg-zinc-200 disabled:text-zinc-400 dark:bg-zinc-100 dark:text-zinc-900 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-600"
+          >
+            Create
+          </button>
+        </div>
+      )}
 
       <ul className="flex flex-col gap-1.5">
         {knowledgeBases.map((kb) => (
