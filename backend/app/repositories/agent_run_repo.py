@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -23,8 +25,30 @@ def get_agent_run(db: Session, run_id: str) -> AgentRun | None:
     return db.scalar(select(AgentRun).where(AgentRun.run_id == run_id))
 
 
-def list_agent_runs(db: Session) -> list[AgentRun]:
-    return list(db.scalars(select(AgentRun).order_by(AgentRun.created_at.desc())))
+def list_agent_runs(
+    db: Session,
+    *,
+    knowledge_base_id: str | None = None,
+    route: str | None = None,
+    status: str | None = None,
+    answer_status: str | None = None,
+    created_from: datetime | None = None,
+    created_to: datetime | None = None,
+) -> list[AgentRun]:
+    query = select(AgentRun)
+    if knowledge_base_id:
+        query = query.where(AgentRun.knowledge_base_id == knowledge_base_id)
+    if route:
+        query = query.where(AgentRun.route == route)
+    if status:
+        query = query.where(AgentRun.status == status)
+    if answer_status:
+        query = query.where(AgentRun.answer_status == answer_status)
+    if created_from:
+        query = query.where(AgentRun.created_at >= created_from)
+    if created_to:
+        query = query.where(AgentRun.created_at <= created_to)
+    return list(db.scalars(query.order_by(AgentRun.created_at.desc())))
 
 
 def list_agent_steps(db: Session, run_id: str) -> list[AgentStep]:

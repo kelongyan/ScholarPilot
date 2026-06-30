@@ -116,6 +116,15 @@ export interface AgentRunListResponse {
   agent_runs: AgentRunResponse[];
 }
 
+export interface AgentRunListFilters {
+  knowledge_base_id?: string | null;
+  route?: string | null;
+  status?: string | null;
+  answer_status?: string | null;
+  created_from?: string | null;
+  created_to?: string | null;
+}
+
 export interface KnowledgeBaseResponse {
   knowledge_base_id: string;
   name: string;
@@ -171,4 +180,23 @@ export interface AnswerFeedbackResponse {
   citation_accurate?: boolean | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface KnowledgeOperationSuggestionResponse {
+  suggestion_id: string;
+  knowledge_base_id?: string | null;
+  doc_id?: string | null;
+  question_log_id?: string | null;
+  suggestion_type: string;
+  severity: string;
+  title: string;
+  description: string;
+  suggested_action: string;
+  status: string;
+  evidence: Record<string, unknown>[];
+  created_at?: string | null;
+}
+
+export interface KnowledgeOperationSuggestionListResponse {
+  suggestions: KnowledgeOperationSuggestionResponse[];
 }

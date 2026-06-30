@@ -53,6 +53,7 @@ def test_run_agent_endpoint_returns_step_trace(monkeypatch) -> None:
 
     class FakeDoc:
         status = "indexed"
+        knowledge_base_id = "kb-1"
 
     monkeypatch.setattr(document_repo, "get_document", lambda db, doc_id: FakeDoc())
     monkeypatch.setattr(
@@ -87,6 +88,7 @@ def test_run_agent_rejects_non_indexed_document(monkeypatch) -> None:
 
     class FakeDoc:
         status = "indexing"
+        knowledge_base_id = "kb-1"
 
     monkeypatch.setattr(document_repo, "get_document", lambda db, doc_id: FakeDoc())
 
@@ -114,3 +116,44 @@ def test_get_agent_run_404(monkeypatch) -> None:
         _teardown_db_override()
 
     assert response.status_code == 404
+
+
+def test_list_agent_runs_passes_filters(monkeypatch) -> None:
+    from app.services import agent_service
+
+    captured = {}
+
+    def fake_list_agent_run_responses(db, **kwargs):
+        captured.update(kwargs)
+        return []
+
+    monkeypatch.setattr(
+        agent_service,
+        "list_agent_run_responses",
+        fake_list_agent_run_responses,
+    )
+
+    _setup_db_override()
+    try:
+        response = client.get(
+            "/agent-runs",
+            params={
+                "knowledge_base_id": "kb-1",
+                "route": "multi_agent",
+                "status": "completed",
+                "answer_status": "answered",
+                "created_from": "2026-06-01T00:00:00",
+                "created_to": "2026-06-30T23:59:59",
+            },
+        )
+    finally:
+        _teardown_db_override()
+
+    assert response.status_code == 200
+    assert response.json() == {"agent_runs": []}
+    assert captured["knowledge_base_id"] == "kb-1"
+    assert captured["route"] == "multi_agent"
+    assert captured["status"] == "completed"
+    assert captured["answer_status"] == "answered"
+    assert captured["created_from"].isoformat() == "2026-06-01T00:00:00"
+    assert captured["created_to"].isoformat() == "2026-06-30T23:59:59"

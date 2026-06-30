@@ -293,14 +293,12 @@ Phase 6  生产化、统计看板与扩展生态
 
 ## 11. 当前开发建议
 
-Phase 5 已启动，当前已有受控 Agent 固定工作流、Agent run/step 持久化和前端 run 回看入口。下一步不要直接扩张到开放式工具市场或跨系统 Agent，而是继续围绕“可回放、可评测、可运营”的受控工作流补齐产品闭环。
+Phase 5 已启动，当前已有受控 Agent 固定工作流、Agent run/step 持久化、前端 run 回看入口、Agent run 过滤和确定性知识运营建议。下一步不要直接扩张到开放式工具市场或跨系统 Agent，而是继续围绕“可回放、可评测、可运营”的受控工作流补齐产品闭环。
 
 推荐拆分顺序：
 
-1. Agent run 过滤：按知识库、route、status、answer_status 和时间范围查看历史执行。
-2. Knowledge Operations Agent：基于证据不足问题和低质量反馈生成 FAQ 草稿、补文档建议或重建索引建议。
-3. P4 知识运营清单：无答案问题、低质量引用、解析失败文档、索引失败文档。
-4. 审计日志：文档上传、reindex、反馈、Agent run 查看等关键操作。
-5. 评测 API：固定 QA 集、运行记录、结果查看，并复用 chat trace 与 agent trace。
-6. 最小 auth/RBAC：先实现管理员、知识库管理员、普通用户的基础边界。
-7. LangGraph 评估：仅在当前状态机 API 契约稳定后替换内部 runner，不改变外部 `/agent-runs` 契约。
+1. P4 知识运营清单持久化：无答案问题、低质量引用、解析失败文档、索引失败文档和处理状态。
+2. 审计日志：文档上传、reindex、反馈、Agent run 查看等关键操作。
+3. 评测 API：固定 QA 集、运行记录、结果查看，并复用 chat trace 与 agent trace。
+4. 最小 auth/RBAC：先实现管理员、知识库管理员、普通用户的基础边界。
+5. LangGraph 评估：仅在当前状态机 API 契约稳定后替换内部 runner，不改变外部 `/agent-runs` 契约。

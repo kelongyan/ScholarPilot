@@ -11,6 +11,7 @@ import time
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import datetime
 
 from sqlalchemy.orm import Session
 
@@ -283,10 +284,27 @@ def create_agent_run(
     return agent_run_repo.create_agent_run(db, run, steps)
 
 
-def list_agent_run_responses(db: Session) -> list[AgentRunResponse]:
+def list_agent_run_responses(
+    db: Session,
+    *,
+    knowledge_base_id: str | None = None,
+    route: str | None = None,
+    status: str | None = None,
+    answer_status: str | None = None,
+    created_from: datetime | None = None,
+    created_to: datetime | None = None,
+) -> list[AgentRunResponse]:
     """List persisted Agent runs with their step traces."""
     responses: list[AgentRunResponse] = []
-    for run in agent_run_repo.list_agent_runs(db):
+    for run in agent_run_repo.list_agent_runs(
+        db,
+        knowledge_base_id=knowledge_base_id,
+        route=route,
+        status=status,
+        answer_status=answer_status,
+        created_from=created_from,
+        created_to=created_to,
+    ):
         steps = agent_run_repo.list_agent_steps(db, run.run_id)
         responses.append(_response_from_persisted(run, steps))
     return responses

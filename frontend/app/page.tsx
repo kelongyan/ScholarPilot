@@ -14,6 +14,7 @@ import { DocumentList } from "@/components/document/document-list";
 import { ChatPanel } from "@/components/chat/chat-panel";
 import { CitationPanel } from "@/components/citation/citation-panel";
 import { AgentRunHistory } from "@/components/agent/agent-run-history";
+import { KnowledgeOperationsPanel } from "@/components/knowledge-operations/knowledge-operations-panel";
 
 /**
  * Kairos home page: three-column knowledge workspace.
@@ -91,6 +92,7 @@ export default function Home() {
                 setSelectedAgentRunId(null);
               }}
             />
+            <KnowledgeOperationsPanel knowledgeBaseId={selectedKnowledgeBaseId} />
           </div>
         </aside>
 
@@ -115,6 +117,7 @@ export default function Home() {
         <aside className="bg-white p-4 dark:bg-zinc-950">
           <div className="flex flex-col gap-4">
             <AgentRunHistory
+              knowledgeBaseId={selectedKnowledgeBaseId}
               selectedRunId={selectedAgentRunId}
               onSelect={(run: AgentRunResponse) => {
                 setSelectedAgentRunId(run.run_id);

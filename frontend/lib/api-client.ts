@@ -3,6 +3,7 @@
  */
 
 import type {
+  AgentRunListFilters,
   AgentRunListResponse,
   AgentRunRequest,
   AgentRunResponse,
@@ -14,6 +15,7 @@ import type {
   DocumentResponse,
   KnowledgeBaseCreateRequest,
   KnowledgeBaseListResponse,
+  KnowledgeOperationSuggestionListResponse,
   KnowledgeBaseResponse,
   KnowledgeBaseUpdateRequest,
 } from "./types";
@@ -104,8 +106,16 @@ export class ApiClient {
     return res.json() as Promise<AgentRunResponse>;
   }
 
-  async listAgentRuns(): Promise<AgentRunListResponse> {
-    const res = await fetch(`${this.baseUrl}/agent-runs`);
+  async listAgentRuns(
+    filters: AgentRunListFilters = {}
+  ): Promise<AgentRunListResponse> {
+    const url = new URL(`${this.baseUrl}/agent-runs`);
+    for (const [key, value] of Object.entries(filters)) {
+      if (value) {
+        url.searchParams.set(key, value);
+      }
+    }
+    const res = await fetch(url);
     if (!res.ok) {
       throw new Error(`List Agent runs failed: ${res.status}`);
     }
@@ -173,6 +183,20 @@ export class ApiClient {
       throw new Error(`Submit feedback failed: ${res.status} ${detail}`);
     }
     return res.json() as Promise<AnswerFeedbackResponse>;
+  }
+
+  async listKnowledgeOperationSuggestions(
+    knowledgeBaseId?: string | null
+  ): Promise<KnowledgeOperationSuggestionListResponse> {
+    const url = new URL(`${this.baseUrl}/knowledge-operations/suggestions`);
+    if (knowledgeBaseId) {
+      url.searchParams.set("knowledge_base_id", knowledgeBaseId);
+    }
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error(`List knowledge operation suggestions failed: ${res.status}`);
+    }
+    return res.json() as Promise<KnowledgeOperationSuggestionListResponse>;
   }
 }
 

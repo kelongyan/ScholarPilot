@@ -16,7 +16,8 @@
 
 ```text
 核心 RAG 引擎、知识库产品层和基础 trace 持久化已建立；
-Phase 5 受控 Agent 工作流已启动，P4 权限/审计/运营清单仍待补齐。
+Phase 5 受控 Agent 工作流、Agent run 过滤和确定性知识运营建议已启动；
+P4 权限/审计/持久化运营清单仍待补齐。
 ```
 
 ---
@@ -67,17 +68,93 @@ Phase 5 受控 Agent 工作流已启动，P4 权限/审计/运营清单仍待补
 | Knowledge base entity | Done | Phase 3 |
 | Knowledge-base-level QA | Done | Phase 3 |
 | User feedback | Done | Phase 3 |
-| Knowledge gap tracking | Not started | Phase 3/4 |
+| Knowledge gap tracking | In progress | Deterministic suggestions from no-answer logs, poor feedback, and failed documents |
 | Multi-format ingestion | Not started | PDF only |
 | User auth and RBAC | Not started | Phase 4 |
 | Audit logs | Not started | Phase 4 |
 | SSE streaming | Not started | Future chat enhancement |
-| Multi-Agent workflow | In progress | Controlled workflow API, persisted step trace, and run review UI started in Phase 5 |
+| Multi-Agent workflow | In progress | Controlled workflow API, persisted step trace, run review UI, filters, and operations suggestions started in Phase 5 |
 | Dashboard | Not started | Phase 6 |
 
 ---
 
 ## 5. Progress Log
+
+### 2026-06-30 — Phase 5 deterministic knowledge operations suggestions
+
+Continued Phase 5 and P4 closeout by adding a deterministic Knowledge Operations suggestion slice.
+
+Implemented in this iteration:
+
+- Added `/knowledge-operations/suggestions` API.
+- Added knowledge operations schemas and service.
+- Generated pending suggestions from existing signals:
+  - no-answer or insufficient-evidence question logs,
+  - not-useful or citation-inaccurate feedback,
+  - failed document parsing/indexing status.
+- Added frontend knowledge operations panel scoped to the selected knowledge base.
+- Feedback submission now invalidates knowledge operation suggestions so poor feedback appears in the operations loop.
+- Added service and API tests for generated suggestions and knowledge-base filtering.
+
+Verification recorded:
+
+```text
+cd backend
+.\.venv\Scripts\python.exe -m pytest
+# 46 passed, 1 warning
+.\.venv\Scripts\python.exe -m ruff check
+# All checks passed
+
+cd frontend
+pnpm lint
+# ok
+pnpm build
+# compiled successfully
+```
+
+Commit:
+
+```text
+Pending
+```
+
+---
+
+### 2026-06-30 — Phase 5 Agent run filters
+
+Continued Phase 5 by adding filtered Agent run review and resolving the current-priority documentation conflict.
+
+Implemented in this iteration:
+
+- Updated `RULE.md` current priority from the completed Phase 3 knowledge-base layer to Phase 5 controlled Agent workflows plus Phase 4 closeout.
+- Added `/agent-runs` filters for `knowledge_base_id`, `route`, `status`, `answer_status`, `created_from`, and `created_to`.
+- Persisted the document's `knowledge_base_id` on document-scoped Agent runs so knowledge-base filtering includes runs launched from a selected source.
+- Added frontend Agent run filters for current knowledge base, route, run status, answer status, and date range.
+- Added API test coverage to verify Agent run list filters are passed through.
+
+Verification recorded:
+
+```text
+cd backend
+.\.venv\Scripts\python.exe -m pytest
+# 46 passed, 1 warning
+.\.venv\Scripts\python.exe -m ruff check
+# All checks passed
+
+cd frontend
+pnpm lint
+# ok
+pnpm build
+# compiled successfully
+```
+
+Commit:
+
+```text
+Pending
+```
+
+---
 
 ### 2026-06-30 — Phase 5 Agent run review UI
 
@@ -479,7 +556,8 @@ Recommended next tasks:
 
 1. Apply the new `agent_runs` migration in a real local database.
 2. Run an end-to-end Agent workflow against an indexed knowledge base.
-3. Add richer persisted Agent run filters by knowledge base, route, status, and answer status.
-4. Add Knowledge Operations Agent draft generation for no-answer questions and poor feedback.
-5. Decide whether the current in-repo state machine should be replaced by LangGraph after P5 contracts stabilize.
-6. Continue closing P4 gaps: auth/RBAC, audit logs, knowledge operations lists, and repeatable evaluation runs.
+3. Persist knowledge operations suggestions as actionable items with handling status.
+4. Add audit logs for document upload, reindex, feedback, and Agent run review actions.
+5. Add repeatable evaluation API using fixed QA sets plus chat/agent trace artifacts.
+6. Add minimal auth/RBAC boundaries for administrators, knowledge-base managers, and users.
+7. Decide whether the current in-repo state machine should be replaced by LangGraph after P5 contracts stabilize.

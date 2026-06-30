@@ -1,19 +1,62 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
-import type { AgentRunResponse } from "@/lib/types";
+import type { AgentRunListFilters, AgentRunResponse } from "@/lib/types";
+
+const ROUTES = [
+  { label: "All routes", value: "" },
+  { label: "Short", value: "short" },
+  { label: "Multi-agent", value: "multi_agent" },
+];
+
+const STATUSES = [
+  { label: "All statuses", value: "" },
+  { label: "Completed", value: "completed" },
+  { label: "Failed", value: "failed" },
+  { label: "Max steps", value: "max_steps_exceeded" },
+];
+
+const ANSWER_STATUSES = [
+  { label: "All answers", value: "" },
+  { label: "Answered", value: "answered" },
+  { label: "Insufficient evidence", value: "insufficient_evidence" },
+  { label: "Failed", value: "failed" },
+  { label: "Max steps", value: "max_steps_exceeded" },
+];
 
 export function AgentRunHistory({
+  knowledgeBaseId,
   selectedRunId,
   onSelect,
 }: {
+  knowledgeBaseId: string | null;
   selectedRunId: string | null;
   onSelect: (run: AgentRunResponse) => void;
 }) {
+  const [scopeToCurrentKb, setScopeToCurrentKb] = useState(true);
+  const [route, setRoute] = useState("");
+  const [status, setStatus] = useState("");
+  const [answerStatus, setAnswerStatus] = useState("");
+  const [createdFrom, setCreatedFrom] = useState("");
+  const [createdTo, setCreatedTo] = useState("");
+
+  const filters: AgentRunListFilters = useMemo(
+    () => ({
+      knowledge_base_id: scopeToCurrentKb ? knowledgeBaseId : null,
+      route,
+      status,
+      answer_status: answerStatus,
+      created_from: toStartOfDay(createdFrom),
+      created_to: toEndOfDay(createdTo),
+    }),
+    [answerStatus, createdFrom, createdTo, knowledgeBaseId, route, scopeToCurrentKb, status]
+  );
+
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: ["agent-runs"],
-    queryFn: () => apiClient.listAgentRuns(),
+    queryKey: ["agent-runs", filters],
+    queryFn: () => apiClient.listAgentRuns(filters),
     staleTime: 10_000,
   });
 
@@ -33,6 +76,68 @@ export function AgentRunHistory({
         >
           {isFetching ? "Refreshing" : "Refresh"}
         </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 text-xs">
+        <label className="col-span-2 flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
+          <input
+            type="checkbox"
+            checked={scopeToCurrentKb}
+            disabled={!knowledgeBaseId}
+            onChange={(event) => setScopeToCurrentKb(event.target.checked)}
+            className="h-3.5 w-3.5"
+          />
+          Current knowledge base
+        </label>
+
+        <select
+          value={route}
+          onChange={(event) => setRoute(event.target.value)}
+          className="min-w-0 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+        >
+          {ROUTES.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={status}
+          onChange={(event) => setStatus(event.target.value)}
+          className="min-w-0 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+        >
+          {STATUSES.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={answerStatus}
+          onChange={(event) => setAnswerStatus(event.target.value)}
+          className="col-span-2 min-w-0 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+        >
+          {ANSWER_STATUSES.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+
+        <input
+          type="date"
+          value={createdFrom}
+          onChange={(event) => setCreatedFrom(event.target.value)}
+          className="min-w-0 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+        />
+        <input
+          type="date"
+          value={createdTo}
+          onChange={(event) => setCreatedTo(event.target.value)}
+          className="min-w-0 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+        />
       </div>
 
       {isLoading ? (
@@ -78,4 +183,12 @@ export function AgentRunHistory({
       )}
     </section>
   );
+}
+
+function toStartOfDay(value: string): string | null {
+  return value ? `${value}T00:00:00` : null;
+}
+
+function toEndOfDay(value: string): string | null {
+  return value ? `${value}T23:59:59` : null;
 }

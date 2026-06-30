@@ -124,9 +124,12 @@ export function ChatPanel({
       apiClient.submitFeedback(questionLogId, {
         useful,
         citation_accurate: citationAccurate,
-      }),
+    }),
     onSuccess: (_data, variables) => {
       setFeedbackMessageId(variables.questionLogId);
+      queryClient.invalidateQueries({
+        queryKey: ["knowledge-operation-suggestions"],
+      });
     },
   });
 

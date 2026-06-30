@@ -10,6 +10,10 @@ from app.schemas.knowledge_base import (
     KnowledgeBaseResponse,
     KnowledgeBaseUpdateRequest,
 )
+from app.schemas.knowledge_operations import (
+    KnowledgeOperationSuggestionListResponse,
+    KnowledgeOperationSuggestionResponse,
+)
 from app.schemas.question_log import (
     AnswerFeedbackRequest,
     AnswerFeedbackResponse,
@@ -34,6 +38,8 @@ __all__ = [
     "KnowledgeBaseListResponse",
     "KnowledgeBaseResponse",
     "KnowledgeBaseUpdateRequest",
+    "KnowledgeOperationSuggestionListResponse",
+    "KnowledgeOperationSuggestionResponse",
     "AnswerFeedbackRequest",
     "AnswerFeedbackResponse",
     "QuestionLogCreateRequest",

@@ -25,6 +25,12 @@ def list_question_logs(db: Session) -> list[QuestionLog]:
     return list(db.scalars(select(QuestionLog).order_by(QuestionLog.created_at.desc())))
 
 
+def list_answer_feedback(db: Session) -> list[AnswerFeedback]:
+    return list(
+        db.scalars(select(AnswerFeedback).order_by(AnswerFeedback.created_at.desc()))
+    )
+
+
 def create_answer_feedback(db: Session, feedback: AnswerFeedback) -> AnswerFeedback:
     db.add(feedback)
     db.commit()

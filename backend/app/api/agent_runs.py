@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -72,10 +74,26 @@ async def run_agent(
 
 
 @router.get("", response_model=AgentRunListResponse)
-async def list_agent_runs(db: Session = Depends(get_db)) -> AgentRunListResponse:
+async def list_agent_runs(
+    knowledge_base_id: str | None = None,
+    route: str | None = None,
+    status: str | None = None,
+    answer_status: str | None = None,
+    created_from: datetime | None = None,
+    created_to: datetime | None = None,
+    db: Session = Depends(get_db),
+) -> AgentRunListResponse:
     """List persisted Agent runs."""
     return AgentRunListResponse(
-        agent_runs=agent_service.list_agent_run_responses(db)
+        agent_runs=agent_service.list_agent_run_responses(
+            db,
+            knowledge_base_id=knowledge_base_id,
+            route=route,
+            status=status,
+            answer_status=answer_status,
+            created_from=created_from,
+            created_to=created_to,
+        )
     )
 
 
@@ -113,7 +131,7 @@ def _validate_scope(
                     "Wait for indexing to complete."
                 ),
             )
-        return request.doc_id, None
+        return request.doc_id, doc.knowledge_base_id
 
     knowledge_base = knowledge_base_repo.get_knowledge_base(
         db, request.knowledge_base_id or ""
