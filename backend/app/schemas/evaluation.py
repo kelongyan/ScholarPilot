@@ -75,6 +75,7 @@ class EvaluationRunItemResponse(BaseModel):
     expected_keywords: list[str] = Field(default_factory=list)
     matched_keywords: list[str] = Field(default_factory=list)
     missing_keywords: list[str] = Field(default_factory=list)
+    metrics_json: dict[str, object] = Field(default_factory=dict)
     answer: str
     answer_status: str
     execution_route: str
@@ -101,8 +102,13 @@ class EvaluationRunResponse(BaseModel):
     passed_count: int = 0
     failed_count: int = 0
     average_latency_ms: int = 0
+    dataset_version: str = ""
+    config_snapshot_json: dict[str, object] = Field(default_factory=dict)
     pass_rate: float = 0.0
     summary_json: dict[str, object] = Field(default_factory=dict)
+    metrics_json: dict[str, object] = Field(default_factory=dict)
+    previous_run_id: str | None = None
+    metric_deltas: dict[str, float] = Field(default_factory=dict)
     items: list[EvaluationRunItemResponse] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime

@@ -50,6 +50,7 @@ Read the documents in this order:
 | 6 | [doc/04-development-progress.md](doc/04-development-progress.md) | Current status and progress log |
 | 7 | [doc/05-environment-setup.md](doc/05-environment-setup.md) | Local development environment |
 | 8 | [doc/06-local-llm-deployment.md](doc/06-local-llm-deployment.md) | Local model deployment notes |
+| 9 | [doc/07-product-closure-plan.md](doc/07-product-closure-plan.md) | Phase-by-phase product closure plan |
 
 ---
 
@@ -111,7 +112,7 @@ Long term: evaluate Docling, Langfuse/Phoenix, LiteLLM, OpenSearch/Elasticsearch
 Current priority:
 
 ```text
-Continue Phase 5 controlled Agent orchestration while closing remaining Phase 4 operations, auth, audit, and evaluation gaps
+Start product closure Stage 5: retrieval and answer quality loop
 ```
 
 ---
@@ -120,20 +121,23 @@ Continue Phase 5 controlled Agent orchestration while closing remaining Phase 4 
 
 - FastAPI + Next.js project foundation.
 - PostgreSQL metadata models for documents, chunks, and citations.
-- PDF upload, parsing, chunking, embedding, indexing, and status tracking.
+- PDF, Markdown, TXT, HTML, and DOCX upload, parsing, chunking, embedding, indexing, and status tracking.
+- Document replacement/versioning, archive/delete/restore, and index cleanup lifecycle controls.
 - Redis/RQ worker pipeline.
 - Qdrant dense retrieval.
 - BM25 sparse retrieval, RRF fusion, reranker provider boundary.
 - Evidence Pack and retrieval trace returned by `/chat`.
 - Controlled `/agent-runs` workflow with planner, retrieval, analyst, writer, reviewer, and step trace.
 - Persisted knowledge operation items generated from no-answer questions, poor feedback, and failed documents.
+- Evaluation runs with dataset/config snapshots, artifact drill-down, quality metrics, and observability summary.
+- Persisted knowledge-base memberships with governance APIs, frontend member management, and membership-aware backend access checks.
 - Frontend document list, chat panel, citation panel, and trace summary.
 
 Not implemented yet:
 
-- Multi-format ingestion beyond PDF.
-- Richer operations dashboards and aggregate knowledge gap analytics.
-- Full user auth, RBAC, audit logs, and evaluation API.
+- OCR/layout-rich parsing for scanned PDFs, tables, slides, and complex documents.
+- Production-grade organization/workspace tenant management beyond KB membership.
+- Richer operations dashboards and aggregate knowledge gap analytics beyond the current summary/trend slice.
 - LangGraph-backed Agent runner.
 
 ---

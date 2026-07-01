@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from app.models import KnowledgeOperationItem
+from app.models import KnowledgeOperationDraft, KnowledgeOperationEvent, KnowledgeOperationItem
 from app.repositories import (
     agent_run_repo,
     document_repo,
@@ -34,7 +35,18 @@ class OperationDraft:
     title: str
     description: str
     suggested_action: str
+    aggregate_key: str = ""
+    signal_at: datetime | None = None
     agent_run_id: str | None = None
+
+
+@dataclass(frozen=True)
+class HandlingActionResult:
+    """Result of an operation handling action."""
+
+    note: str = ""
+    detail_json: dict[str, object] = field(default_factory=dict)
+    draft: KnowledgeOperationDraft | None = None
 
 
 def list_items(
@@ -61,22 +73,61 @@ def get_item(db: Session, item_id: str) -> KnowledgeOperationItem | None:
     return knowledge_operation_repo.get_item(db, item_id)
 
 
+def list_item_events(db: Session, *, item_id: str) -> list[KnowledgeOperationEvent]:
+    """List structured lifecycle events for an operation item."""
+    return knowledge_operation_repo.list_events(db, item_id=item_id)
+
+
+def list_drafts(
+    db: Session,
+    *,
+    knowledge_base_id: str | None = None,
+    item_id: str | None = None,
+    status: str | None = None,
+) -> list[KnowledgeOperationDraft]:
+    """List draft knowledge assets created from operation handling."""
+    return knowledge_operation_repo.list_drafts(
+        db,
+        knowledge_base_id=knowledge_base_id,
+        item_id=item_id,
+        status=status,
+    )
+
+
 def update_item(
     db: Session,
     item_id: str,
     *,
     status: str,
     resolution_note: str = "",
+    actor_id: str = "system",
 ) -> KnowledgeOperationItem | None:
-    """Update handling status for a persisted operation item."""
+    """Update handling status for a persisted operation item.
+
+    Some statuses are actionable: they execute a repair step before the item is
+    marked handled. This keeps the operations list tied to real remediation
+    work instead of being only a manual checklist.
+    """
     item = knowledge_operation_repo.get_item(db, item_id)
     if item is None:
         return None
+    action_result = _apply_handling_action(db, item, status, actor_id=actor_id)
+    merged_note = _merge_resolution_notes(resolution_note, action_result.note)
+    event = _handling_event(
+        item,
+        status=status,
+        actor_id=actor_id,
+        resolution_note=resolution_note,
+        action_note=action_result.note,
+        action_detail=action_result.detail_json,
+    )
     return knowledge_operation_repo.update_item(
         db,
         item,
         status=status,
-        resolution_note=resolution_note,
+        resolution_note=merged_note,
+        event=event,
+        draft=action_result.draft,
     )
 
 
@@ -112,15 +163,7 @@ def sync_agent_run_item(db: Session, *, run_id: str) -> KnowledgeOperationItem |
         draft = _agent_run_draft(run, steps)
         if draft is None:
             return None
-        existing = knowledge_operation_repo.get_item_by_source(
-            db,
-            source_type=draft.source_type,
-            source_id=draft.source_id,
-            suggestion_type=draft.suggestion_type,
-        )
-        if existing is not None:
-            return existing
-        return _create_item_from_draft(db, draft)
+        return _sync_draft(db, draft)
     except Exception:  # noqa: BLE001
         _rollback_if_possible(db)
         return None
@@ -132,15 +175,7 @@ def _sync_generated_items(
     knowledge_base_id: str | None,
 ) -> None:
     for draft in _generate_drafts(db, knowledge_base_id=knowledge_base_id):
-        existing = knowledge_operation_repo.get_item_by_source(
-            db,
-            source_type=draft.source_type,
-            source_id=draft.source_id,
-            suggestion_type=draft.suggestion_type,
-        )
-        if existing is not None:
-            continue
-        _create_item_from_draft(db, draft)
+        _sync_draft(db, draft)
 
 
 def _generate_drafts(
@@ -172,6 +207,8 @@ def _generate_drafts(
 
     for doc in document_repo.list_documents(db):
         if not _matches_knowledge_base(doc.knowledge_base_id, knowledge_base_id):
+            continue
+        if getattr(doc, "lifecycle_status", "active") != "active":
             continue
         if doc.status == "failed":
             drafts.append(_failed_document_draft(doc))
@@ -223,6 +260,8 @@ def _no_answer_draft(log) -> OperationDraft:
         source_type="question_log",
         source_id=log.question_log_id,
         suggestion_type="faq_draft",
+        aggregate_key=_knowledge_gap_aggregate_key(log),
+        signal_at=getattr(log, "created_at", None),
         severity="high",
         title="Draft missing knowledge answer",
         description=(
@@ -243,6 +282,8 @@ def _poor_answer_draft(log, feedback) -> OperationDraft:
         source_type="answer_feedback",
         source_id=feedback.feedback_id,
         suggestion_type="answer_quality_review",
+        aggregate_key=_feedback_aggregate_key(log, "answer_quality_review"),
+        signal_at=getattr(feedback, "created_at", None),
         severity="medium",
         title="Review answer marked not useful",
         description="A user marked this answer as not useful.",
@@ -261,6 +302,8 @@ def _citation_review_draft(log, feedback) -> OperationDraft:
         source_type="answer_feedback",
         source_id=feedback.feedback_id,
         suggestion_type="citation_review",
+        aggregate_key=_feedback_aggregate_key(log, "citation_review"),
+        signal_at=getattr(feedback, "created_at", None),
         severity="medium",
         title="Review inaccurate citation feedback",
         description="A user reported that the answer citation was inaccurate.",
@@ -278,6 +321,13 @@ def _failed_document_draft(doc) -> OperationDraft:
         source_type="document",
         source_id=doc.doc_id,
         suggestion_type="reindex_document",
+        aggregate_key=_source_aggregate_key(
+            knowledge_base_id=doc.knowledge_base_id,
+            source_type="document",
+            source_id=doc.doc_id,
+            suggestion_type="reindex_document",
+        ),
+        signal_at=getattr(doc, "updated_at", None),
         severity="high",
         title="Fix failed document processing",
         description="A source document failed parsing, embedding, or indexing.",
@@ -287,10 +337,57 @@ def _failed_document_draft(doc) -> OperationDraft:
     )
 
 
+def _sync_draft(db: Session, draft: OperationDraft) -> KnowledgeOperationItem | None:
+    existing_signal = knowledge_operation_repo.get_event_by_source(
+        db,
+        event_type="signal_detected",
+        source_type=draft.source_type,
+        source_id=draft.source_id,
+        suggestion_type=draft.suggestion_type,
+    )
+    if existing_signal is not None:
+        return knowledge_operation_repo.get_item(db, existing_signal.item_id)
+
+    existing = knowledge_operation_repo.get_item_by_source(
+        db,
+        source_type=draft.source_type,
+        source_id=draft.source_id,
+        suggestion_type=draft.suggestion_type,
+    )
+    if existing is not None:
+        _record_signal_event(db, existing, draft)
+        return existing
+
+    aggregate_key = draft.aggregate_key or _source_aggregate_key(
+        knowledge_base_id=draft.knowledge_base_id,
+        source_type=draft.source_type,
+        source_id=draft.source_id,
+        suggestion_type=draft.suggestion_type,
+    )
+    aggregate = knowledge_operation_repo.get_pending_item_by_aggregate_key(
+        db,
+        aggregate_key=aggregate_key,
+    )
+    if aggregate is not None:
+        _record_signal_event(db, aggregate, draft, increment_count=True)
+        return aggregate
+
+    item = _create_item_from_draft(db, draft)
+    if item is not None:
+        _record_signal_event(db, item, draft)
+    return item
+
+
 def _create_item_from_draft(
     db: Session,
     draft: OperationDraft,
 ) -> KnowledgeOperationItem | None:
+    aggregate_key = draft.aggregate_key or _source_aggregate_key(
+        knowledge_base_id=draft.knowledge_base_id,
+        source_type=draft.source_type,
+        source_id=draft.source_id,
+        suggestion_type=draft.suggestion_type,
+    )
     try:
         return knowledge_operation_repo.create_item(
             db,
@@ -303,6 +400,9 @@ def _create_item_from_draft(
                 source_type=draft.source_type,
                 source_id=draft.source_id,
                 suggestion_type=draft.suggestion_type,
+                aggregate_key=aggregate_key,
+                signal_count=1,
+                last_signal_at=draft.signal_at,
                 severity=draft.severity,
                 title=draft.title,
                 description=draft.description,
@@ -313,6 +413,220 @@ def _create_item_from_draft(
     except Exception:  # noqa: BLE001
         _rollback_if_possible(db)
         return None
+
+
+def _record_signal_event(
+    db: Session,
+    item: KnowledgeOperationItem,
+    draft: OperationDraft,
+    *,
+    increment_count: bool = False,
+) -> None:
+    try:
+        event = KnowledgeOperationEvent(
+            event_id=str(uuid.uuid4()),
+            item_id=item.item_id,
+            knowledge_base_id=item.knowledge_base_id,
+            event_type="signal_detected",
+            actor_id="system",
+            source_type=draft.source_type,
+            source_id=draft.source_id,
+            suggestion_type=draft.suggestion_type,
+            status=item.status,
+            note=draft.description,
+            detail_json={
+                "title": draft.title,
+                "severity": draft.severity,
+                "suggested_action": draft.suggested_action,
+                "doc_id": draft.doc_id,
+                "question_log_id": draft.question_log_id,
+                "agent_run_id": draft.agent_run_id,
+            },
+        )
+        knowledge_operation_repo.create_event(db, event, commit=False)
+        if increment_count:
+            item.signal_count = int(getattr(item, "signal_count", 1) or 1) + 1
+        if draft.signal_at is not None:
+            item.last_signal_at = draft.signal_at
+        db.commit()
+    except Exception:  # noqa: BLE001
+        _rollback_if_possible(db)
+
+
+def _apply_handling_action(
+    db: Session,
+    item: KnowledgeOperationItem,
+    status: str,
+    *,
+    actor_id: str,
+) -> HandlingActionResult:
+    """Run the repair action implied by a handling status, when one exists."""
+    if status == "document_added":
+        return _create_source_material_draft(db, item, actor_id)
+    if status != "reindexed":
+        return HandlingActionResult()
+    if not item.doc_id:
+        raise ValueError("Cannot reindex an operation item without a document id.")
+
+    from app.services import document_service
+
+    document = document_service.reindex_document(db, item.doc_id)
+    if document is None:
+        raise ValueError(f"Document not found for reindex: {item.doc_id}")
+    return HandlingActionResult(
+        note=f"Reindex queued for document {item.doc_id}.",
+        detail_json={"doc_id": item.doc_id, "action": "reindex_queued"},
+    )
+
+
+def _create_source_material_draft(
+    db: Session,
+    item: KnowledgeOperationItem,
+    actor_id: str,
+) -> HandlingActionResult:
+    """Create or reuse a draft knowledge asset for a gap/quality operation."""
+    existing = knowledge_operation_repo.get_draft_by_item(db, item_id=item.item_id)
+    if existing is not None:
+        return HandlingActionResult(
+            note=f"Knowledge draft already exists: {existing.draft_id}.",
+            detail_json={"draft_id": existing.draft_id, "action": "draft_reused"},
+        )
+
+    draft = KnowledgeOperationDraft(
+        draft_id=str(uuid.uuid4()),
+        item_id=item.item_id,
+        knowledge_base_id=item.knowledge_base_id,
+        doc_id=item.doc_id,
+        question_log_id=item.question_log_id,
+        draft_type=_draft_type_for_item(item),
+        status="draft",
+        title=_draft_title(item),
+        question=_draft_question(item),
+        answer="",
+        source_note=_draft_source_note(item),
+        created_by=actor_id,
+    )
+    return HandlingActionResult(
+        note=f"Knowledge draft created: {draft.draft_id}.",
+        detail_json={
+            "draft_id": draft.draft_id,
+            "draft_type": draft.draft_type,
+            "action": "draft_created",
+        },
+        draft=draft,
+    )
+
+
+def _merge_resolution_notes(user_note: str, action_note: str) -> str:
+    notes = [note.strip() for note in (user_note, action_note) if note.strip()]
+    return "\n".join(notes)
+
+
+def _handling_event(
+    item: KnowledgeOperationItem,
+    *,
+    status: str,
+    actor_id: str,
+    resolution_note: str,
+    action_note: str,
+    action_detail: dict[str, object],
+) -> KnowledgeOperationEvent:
+    return KnowledgeOperationEvent(
+        event_id=str(uuid.uuid4()),
+        item_id=item.item_id,
+        knowledge_base_id=item.knowledge_base_id,
+        event_type="status_updated",
+        actor_id=actor_id,
+        source_type=item.source_type,
+        source_id=item.source_id,
+        suggestion_type=item.suggestion_type,
+        status=status,
+        note=_merge_resolution_notes(resolution_note, action_note),
+        detail_json={
+            "previous_status": item.status,
+            "status": status,
+            "resolution_note": resolution_note,
+            "action_note": action_note,
+            "action_detail": action_detail,
+            "doc_id": item.doc_id,
+            "question_log_id": item.question_log_id,
+            "agent_run_id": item.agent_run_id,
+        },
+    )
+
+
+def _draft_type_for_item(item: KnowledgeOperationItem) -> str:
+    if item.suggestion_type == "faq_draft":
+        return "faq"
+    if item.suggestion_type == "citation_review":
+        return "citation_fix"
+    if item.suggestion_type == "answer_quality_review":
+        return "answer_improvement"
+    return "source_material"
+
+
+def _draft_title(item: KnowledgeOperationItem) -> str:
+    if item.suggestion_type == "faq_draft":
+        return "Draft FAQ for missing answer"
+    if item.suggestion_type == "citation_review":
+        return "Draft citation correction"
+    if item.suggestion_type == "answer_quality_review":
+        return "Draft answer improvement"
+    return f"Draft supporting material for {item.title}"
+
+
+def _draft_question(item: KnowledgeOperationItem) -> str:
+    if item.source_type == "question_log" and item.source_id:
+        return f"Question log {item.source_id}"
+    if item.question_log_id:
+        return f"Question log {item.question_log_id}"
+    return item.title
+
+
+def _draft_source_note(item: KnowledgeOperationItem) -> str:
+    parts = [
+        item.description,
+        item.suggested_action,
+        f"source_type={item.source_type}",
+        f"source_id={item.source_id}",
+        f"suggestion_type={item.suggestion_type}",
+    ]
+    if item.doc_id:
+        parts.append(f"doc_id={item.doc_id}")
+    if item.question_log_id:
+        parts.append(f"question_log_id={item.question_log_id}")
+    if item.agent_run_id:
+        parts.append(f"agent_run_id={item.agent_run_id}")
+    return "\n".join(part for part in parts if part)
+
+
+def _source_aggregate_key(
+    *,
+    knowledge_base_id: str | None,
+    source_type: str,
+    source_id: str,
+    suggestion_type: str,
+) -> str:
+    return "|".join(
+        [
+            knowledge_base_id or "",
+            suggestion_type,
+            source_type,
+            source_id,
+        ]
+    )
+
+
+def _knowledge_gap_aggregate_key(log) -> str:
+    scope = log.knowledge_base_id or log.doc_id or ""
+    normalized_question = " ".join(str(log.question).lower().split())[:120]
+    return f"{scope}|faq_draft|question|{normalized_question}"
+
+
+def _feedback_aggregate_key(log, suggestion_type: str) -> str:
+    scope = log.knowledge_base_id or log.doc_id or ""
+    normalized_question = " ".join(str(log.question).lower().split())[:120]
+    return f"{scope}|{suggestion_type}|feedback|{normalized_question}"
 
 
 def _agent_run_draft(run, steps) -> OperationDraft | None:
@@ -359,6 +673,7 @@ def _agent_run_draft(run, steps) -> OperationDraft | None:
         source_type="agent_run",
         source_id=run.run_id,
         suggestion_type="agent_review",
+        signal_at=getattr(run, "created_at", None),
         severity=severity,
         title=title,
         description=description,
@@ -381,6 +696,9 @@ def _suggestion_from_item(item: KnowledgeOperationItem) -> KnowledgeOperationSug
         source_type=response.source_type,
         source_id=response.source_id,
         suggestion_type=response.suggestion_type,
+        aggregate_key=response.aggregate_key,
+        signal_count=response.signal_count,
+        last_signal_at=response.last_signal_at,
         severity=response.severity,
         title=response.title,
         description=response.description,

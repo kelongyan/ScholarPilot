@@ -9,10 +9,10 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import (
     CurrentUser,
-    require_knowledge_base_access,
     require_min_role,
 )
 from app.core.db import get_db
+from app.core.permissions import require_knowledge_base_access
 from app.repositories import document_repo, knowledge_base_repo
 from app.schemas.agent import AgentRunListResponse, AgentRunRequest, AgentRunResponse
 from app.services import (
@@ -37,7 +37,12 @@ async def run_agent(
 ) -> AgentRunResponse:
     """Run a bounded Agent workflow against a document or knowledge base."""
     doc_id, knowledge_base_id = _validate_scope(request, db)
-    require_knowledge_base_access(current_user, knowledge_base_id)
+    require_knowledge_base_access(
+        db,
+        current_user,
+        knowledge_base_id,
+        min_member_role="contributor",
+    )
     result = agent_service.run_agent_workflow(
         db=db,
         question=request.question,
@@ -116,7 +121,7 @@ async def list_agent_runs(
     current_user: CurrentUser = Depends(require_min_role("kb_manager")),
 ) -> AgentRunListResponse:
     """List persisted Agent runs."""
-    require_knowledge_base_access(current_user, knowledge_base_id)
+    require_knowledge_base_access(db, current_user, knowledge_base_id)
     if knowledge_base_id is None and current_user.knowledge_base_ids is not None:
         runs = []
         for allowed_knowledge_base_id in sorted(current_user.knowledge_base_ids):
@@ -158,7 +163,7 @@ async def get_agent_run(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Agent run not found: {run_id}",
         )
-    require_knowledge_base_access(current_user, result.knowledge_base_id)
+    require_knowledge_base_access(db, current_user, result.knowledge_base_id)
     audit_log_service.try_log_event(
         db,
         action="agent_run.viewed",
@@ -195,6 +200,14 @@ def _validate_scope(
                 detail=(
                     f"Document is not indexed (status: {doc.status}). "
                     "Wait for indexing to complete."
+                ),
+            )
+        if getattr(doc, "lifecycle_status", "active") != "active":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "Document is not active "
+                    f"(lifecycle_status: {doc.lifecycle_status})."
                 ),
             )
         return request.doc_id, doc.knowledge_base_id

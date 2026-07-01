@@ -29,6 +29,9 @@ class KnowledgeOperationItemResponse(BaseModel):
     source_type: str
     source_id: str
     suggestion_type: str
+    aggregate_key: str = ""
+    signal_count: int = 1
+    last_signal_at: datetime | None = None
     severity: str
     title: str
     description: str
@@ -52,6 +55,58 @@ class KnowledgeOperationItemListResponse(BaseModel):
     items: list[KnowledgeOperationItemResponse]
 
 
+class KnowledgeOperationEventResponse(BaseModel):
+    """A structured lifecycle event for a knowledge operation item."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    event_id: str
+    item_id: str
+    knowledge_base_id: str | None = None
+    event_type: str
+    actor_id: str
+    source_type: str
+    source_id: str
+    suggestion_type: str
+    status: str
+    note: str = ""
+    detail_json: dict[str, object] = Field(default_factory=dict)
+    created_at: datetime
+
+
+class KnowledgeOperationEventListResponse(BaseModel):
+    """List of structured lifecycle events for an operation item."""
+
+    events: list[KnowledgeOperationEventResponse]
+
+
+class KnowledgeOperationDraftResponse(BaseModel):
+    """A draft FAQ or source-material note created from an operation item."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    draft_id: str
+    item_id: str
+    knowledge_base_id: str | None = None
+    doc_id: str | None = None
+    question_log_id: str | None = None
+    draft_type: str
+    status: str
+    title: str
+    question: str
+    answer: str
+    source_note: str
+    created_by: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class KnowledgeOperationDraftListResponse(BaseModel):
+    """List of draft knowledge assets created from operation handling."""
+
+    drafts: list[KnowledgeOperationDraftResponse]
+
+
 class KnowledgeOperationSuggestionResponse(BaseModel):
     """Backward-compatible generated suggestion representation."""
 
@@ -66,6 +121,9 @@ class KnowledgeOperationSuggestionResponse(BaseModel):
     source_type: str
     source_id: str
     suggestion_type: str
+    aggregate_key: str = ""
+    signal_count: int = 1
+    last_signal_at: datetime | None = None
     severity: str
     title: str
     description: str

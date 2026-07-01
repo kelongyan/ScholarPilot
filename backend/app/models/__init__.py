@@ -7,8 +7,13 @@ from app.models.chat_trace import ChatTrace
 from app.models.citation import Citation
 from app.models.document import Chunk, Document
 from app.models.evaluation import EvaluationDataset, EvaluationRun, EvaluationRunItem
+from app.models.governance import KnowledgeBaseMember, UserAccount
 from app.models.knowledge_base import KnowledgeBase
-from app.models.knowledge_operation import KnowledgeOperationItem
+from app.models.knowledge_operation import (
+    KnowledgeOperationDraft,
+    KnowledgeOperationEvent,
+    KnowledgeOperationItem,
+)
 from app.models.question_log import AnswerFeedback, QuestionLog
 
 __all__ = [
@@ -25,6 +30,10 @@ __all__ = [
     "EvaluationRun",
     "EvaluationRunItem",
     "KnowledgeBase",
+    "KnowledgeBaseMember",
+    "KnowledgeOperationDraft",
+    "KnowledgeOperationEvent",
     "KnowledgeOperationItem",
     "QuestionLog",
+    "UserAccount",
 ]

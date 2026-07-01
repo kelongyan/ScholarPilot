@@ -5,8 +5,9 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.auth import CurrentUser, require_knowledge_base_access, require_min_role
+from app.core.auth import CurrentUser, require_min_role
 from app.core.db import get_db
+from app.core.permissions import require_knowledge_base_access
 from app.repositories import document_repo, knowledge_base_repo
 from app.schemas.chat import ChatRequest, ChatResponse, CitationResponse
 from app.services import chat_service, chat_trace_service, question_log_service
@@ -34,7 +35,19 @@ async def chat(
                 detail=f"Document is not indexed (status: {doc.status}). "
                 "Wait for indexing to complete.",
             )
-        require_knowledge_base_access(current_user, getattr(doc, "knowledge_base_id", None))
+        if getattr(doc, "lifecycle_status", "active") != "active":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "Document is not active "
+                    f"(lifecycle_status: {doc.lifecycle_status})."
+                ),
+            )
+        require_knowledge_base_access(
+            db,
+            current_user,
+            getattr(doc, "knowledge_base_id", None),
+        )
         result = chat_service.answer_question(
             request.question,
             db=db,
@@ -49,7 +62,7 @@ async def chat(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Knowledge base not found: {request.knowledge_base_id}",
             )
-        require_knowledge_base_access(current_user, request.knowledge_base_id)
+        require_knowledge_base_access(db, current_user, request.knowledge_base_id)
         result = chat_service.answer_question(
             request.question,
             db=db,

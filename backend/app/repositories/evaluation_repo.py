@@ -67,6 +67,29 @@ def list_runs(
     return list(db.scalars(query.order_by(EvaluationRun.created_at.desc())))
 
 
+def get_previous_completed_run(
+    db: Session,
+    *,
+    current_run: EvaluationRun,
+) -> EvaluationRun | None:
+    query = select(EvaluationRun).where(
+        EvaluationRun.run_id != current_run.run_id,
+        EvaluationRun.dataset_key == current_run.dataset_key,
+        EvaluationRun.execution_mode == current_run.execution_mode,
+        EvaluationRun.status == "completed",
+        EvaluationRun.created_at < current_run.created_at,
+    )
+    if current_run.knowledge_base_id is None:
+        query = query.where(EvaluationRun.knowledge_base_id.is_(None))
+    else:
+        query = query.where(EvaluationRun.knowledge_base_id == current_run.knowledge_base_id)
+    if current_run.doc_id is None:
+        query = query.where(EvaluationRun.doc_id.is_(None))
+    else:
+        query = query.where(EvaluationRun.doc_id == current_run.doc_id)
+    return db.scalar(query.order_by(EvaluationRun.created_at.desc()))
+
+
 def update_run(
     db: Session,
     run: EvaluationRun,
@@ -76,7 +99,10 @@ def update_run(
     passed_count: int | None = None,
     failed_count: int | None = None,
     average_latency_ms: int | None = None,
+    dataset_version: str | None = None,
+    config_snapshot_json: dict[str, object] | None = None,
     summary_json: dict[str, object] | None = None,
+    metrics_json: dict[str, object] | None = None,
 ) -> EvaluationRun:
     if status is not None:
         run.status = status
@@ -88,8 +114,14 @@ def update_run(
         run.failed_count = failed_count
     if average_latency_ms is not None:
         run.average_latency_ms = average_latency_ms
+    if dataset_version is not None:
+        run.dataset_version = dataset_version
+    if config_snapshot_json is not None:
+        run.config_snapshot_json = config_snapshot_json
     if summary_json is not None:
         run.summary_json = summary_json
+    if metrics_json is not None:
+        run.metrics_json = metrics_json
     db.commit()
     db.refresh(run)
     return run

@@ -100,3 +100,52 @@ def test_get_chat_trace_404(monkeypatch) -> None:
         _clear_override()
 
     assert response.status_code == 404
+
+
+def test_get_chat_trace_checks_question_log_scope(monkeypatch) -> None:
+    from app.services import chat_trace_service, question_log_service
+
+    class FakeTrace:
+        trace_id = "trace-1"
+        question_log_id = "ql-1"
+        query = "What is indexed?"
+        rewritten_query = "indexed?"
+        dense_results_json = []
+        sparse_results_json = []
+        fused_results_json = []
+        reranked_results_json = []
+        evidence_pack_json = []
+        answer = "The document is indexed."
+        citations_json = []
+        answer_status = "answered"
+        model = ""
+        latency_ms = 12
+        created_at = "2026-06-30T00:00:00Z"
+        updated_at = "2026-06-30T00:00:00Z"
+
+    class FakeQuestionLog:
+        knowledge_base_id = "kb-1"
+
+    captured = {}
+    monkeypatch.setattr(
+        chat_trace_service,
+        "get_chat_trace",
+        lambda db, trace_id: FakeTrace(),
+    )
+
+    def fake_get_question_log(db, question_log_id):
+        captured["question_log_id"] = question_log_id
+        return FakeQuestionLog()
+
+    monkeypatch.setattr(question_log_service, "get_question_log", fake_get_question_log)
+    fake_db = _FakeDB()
+    _override_db(fake_db)
+
+    try:
+        response = client.get("/chat-traces/trace-1")
+    finally:
+        _clear_override()
+
+    assert response.status_code == 200
+    assert response.json()["trace_id"] == "trace-1"
+    assert captured == {"question_log_id": "ql-1"}

@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
   AgentRunResponse,
   AgentStepResponse,
+  ChatTraceResponse,
   CitationResponse,
   DocumentResponse,
   KnowledgeBaseResponse,
@@ -20,6 +21,8 @@ import { AgentRunHistory } from "@/components/agent/agent-run-history";
 import { AuditLogPanel } from "@/components/audit/audit-log-panel";
 import { EvaluationPanel } from "@/components/evaluation/evaluation-panel";
 import { KnowledgeOperationsPanel } from "@/components/knowledge-operations/knowledge-operations-panel";
+import { ObservabilityPanel } from "@/components/observability/observability-panel";
+import { KnowledgeBaseMembersPanel } from "@/components/governance/knowledge-base-members-panel";
 
 /**
  * Kairos home page: three-column knowledge workspace.
@@ -47,6 +50,30 @@ export default function Home() {
   const canManage = canManageKnowledge(currentUser);
   const canAdmin = canAdminister(currentUser);
   const selectedKnowledgeBaseId = selectedKnowledgeBase?.knowledge_base_id ?? null;
+
+  const applyAgentRun = (run: AgentRunResponse) => {
+    setSelectedAgentRunId(run.run_id);
+    setSelectedOperationsRunId(run.run_id);
+    setCitations(run.citations);
+    setTrace(run.trace ?? null);
+    setAgentSteps(run.agent_steps);
+  };
+
+  const openAgentRunMutation = useMutation({
+    mutationFn: (runId: string) => apiClient.getAgentRun(runId),
+    onSuccess: applyAgentRun,
+  });
+
+  const openChatTraceMutation = useMutation({
+    mutationFn: (traceId: string) => apiClient.getChatTrace(traceId),
+    onSuccess: (chatTrace) => {
+      setSelectedAgentRunId(null);
+      setSelectedOperationsRunId(null);
+      setCitations(chatTrace.citations_json);
+      setTrace(chatTraceToRetrievalTrace(chatTrace));
+      setAgentSteps([]);
+    },
+  });
 
   return (
     <div className="flex flex-col flex-1 bg-zinc-50 font-sans dark:bg-black">
@@ -90,6 +117,7 @@ export default function Home() {
                 setSelectedOperationsRunId(null);
               }}
             />
+            {canManage && <KnowledgeBaseMembersPanel knowledgeBaseId={selectedKnowledgeBaseId} />}
             <DocumentList
               selectedDocId={selectedDoc?.doc_id ?? null}
               knowledgeBaseId={selectedKnowledgeBaseId}
@@ -147,22 +175,35 @@ export default function Home() {
               <AgentRunHistory
                 knowledgeBaseId={selectedKnowledgeBaseId}
                 selectedRunId={selectedAgentRunId}
-                onSelect={(run: AgentRunResponse) => {
-                  setSelectedAgentRunId(run.run_id);
-                  setSelectedOperationsRunId(run.run_id);
-                  setCitations(run.citations);
-                  setTrace(run.trace ?? null);
-                  setAgentSteps(run.agent_steps);
-                }}
+                onSelect={applyAgentRun}
                 onInspectOperations={(runId) => setSelectedOperationsRunId(runId)}
               />
             )}
             {canAdmin && <AuditLogPanel knowledgeBaseId={selectedKnowledgeBaseId} />}
-            {canManage && <EvaluationPanel knowledgeBaseId={selectedKnowledgeBaseId} />}
+            {canManage && <ObservabilityPanel knowledgeBaseId={selectedKnowledgeBaseId} />}
+            {canManage && (
+              <EvaluationPanel
+                knowledgeBaseId={selectedKnowledgeBaseId}
+                onOpenChatTrace={(traceId) => openChatTraceMutation.mutate(traceId)}
+                onOpenAgentRun={(runId) => openAgentRunMutation.mutate(runId)}
+              />
+            )}
             <CitationPanel citations={citations} trace={trace} agentSteps={agentSteps} />
           </div>
         </aside>
       </div>
     </div>
   );
+}
+
+function chatTraceToRetrievalTrace(trace: ChatTraceResponse): RetrievalTraceResponse {
+  return {
+    query: trace.query,
+    rewritten_query: trace.rewritten_query,
+    dense_results: trace.dense_results_json,
+    sparse_results: trace.sparse_results_json,
+    fused_results: trace.fused_results_json,
+    reranked_results: trace.reranked_results_json,
+    evidence_pack: trace.evidence_pack_json,
+  };
 }

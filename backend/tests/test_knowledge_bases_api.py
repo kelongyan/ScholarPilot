@@ -33,6 +33,9 @@ class _FakeDB:
     def refresh(self, obj) -> None:
         pass
 
+    def scalar(self, query):
+        return None
+
     def close(self) -> None:
         pass
 

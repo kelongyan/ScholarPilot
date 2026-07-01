@@ -46,7 +46,7 @@ def chunk_document(
     are sized by approximate token count.
 
     Args:
-        parsed: The parsed document from :func:`parse_pdf`.
+        parsed: The parsed document from :func:`parse_document`.
         doc_id: The document id (stored on each chunk's provenance).
         chunk_size: Target tokens per chunk (defaults to settings).
         chunk_overlap: Overlap tokens between chunks (defaults to settings).

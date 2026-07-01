@@ -41,6 +41,7 @@ class _FakeRun:
     failed_count = 0
     average_latency_ms = 11
     summary_json = {"pass_rate": 1.0}
+    metrics_json = {"average_keyword_coverage": 1.0, "answer_rate": 1.0}
     created_at = datetime(2026, 6, 30, tzinfo=UTC)
     updated_at = datetime(2026, 6, 30, tzinfo=UTC)
 
@@ -52,6 +53,7 @@ class _FakeRunItem:
     expected_keywords_json = ["rewrite", "BM25", "dense"]
     matched_keywords_json = ["rewrite", "BM25", "dense"]
     missing_keywords_json = []
+    metrics_json = {"keyword_coverage": 1.0}
     answer = "Hybrid retrieval uses rewrite, dense, and BM25."
     answer_status = "answered"
     execution_route = "chat"
@@ -198,6 +200,7 @@ def test_list_evaluation_runs(monkeypatch) -> None:
 
     assert response.status_code == 200
     assert response.json()["evaluation_runs"][0]["run_id"] == "eval-run-1"
+    assert response.json()["evaluation_runs"][0]["metric_deltas"] == {}
     assert captured["dataset_key"] == "phase2_fixed_qa"
     assert captured["knowledge_base_id"] == "kb-1"
     assert captured["execution_mode"] == "chat"
@@ -221,6 +224,7 @@ def _run_response():
         average_latency_ms=11,
         pass_rate=1.0,
         summary_json={"pass_rate": 1.0},
+        metrics_json={"average_keyword_coverage": 1.0, "answer_rate": 1.0},
         items=[
             EvaluationRunItemResponse(
                 item_id="eval-item-1",
@@ -229,6 +233,7 @@ def _run_response():
                 expected_keywords=["rewrite", "BM25", "dense"],
                 matched_keywords=["rewrite", "BM25", "dense"],
                 missing_keywords=[],
+                metrics_json={"keyword_coverage": 1.0},
                 answer="Hybrid retrieval uses rewrite, dense, and BM25.",
                 answer_status="answered",
                 execution_route="chat",

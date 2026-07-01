@@ -1,6 +1,7 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
 import type { DocumentResponse, DocumentStatus } from "@/lib/types";
 import { UploadPanel } from "./upload-panel";
@@ -31,6 +32,8 @@ export function DocumentList({
   onClearSelection: () => void;
   onSelect: (doc: DocumentResponse) => void;
 }) {
+  const queryClient = useQueryClient();
+  const [actionError, setActionError] = useState<string | null>(null);
   const { data, isLoading, error } = useQuery({
     queryKey: ["documents", knowledgeBaseId],
     queryFn: () => apiClient.listDocuments(knowledgeBaseId),
@@ -44,6 +47,61 @@ export function DocumentList({
   });
 
   const documents = data?.documents ?? [];
+
+  const refreshDocuments = () => {
+    queryClient.invalidateQueries({ queryKey: ["documents"] });
+  };
+
+  const replaceMutation = useMutation({
+    mutationFn: ({ docId, file }: { docId: string; file: File }) =>
+      apiClient.replaceDocument(docId, file),
+    onSuccess: (doc) => {
+      setActionError(null);
+      refreshDocuments();
+      onSelect(doc);
+    },
+    onError: (err: Error) => setActionError(err.message),
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: (docId: string) => apiClient.archiveDocument(docId),
+    onSuccess: (doc) => {
+      setActionError(null);
+      refreshDocuments();
+      if (selectedDocId === doc.doc_id) {
+        onClearSelection();
+      }
+    },
+    onError: (err: Error) => setActionError(err.message),
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: (docId: string) => apiClient.restoreDocument(docId),
+    onSuccess: (doc) => {
+      setActionError(null);
+      refreshDocuments();
+      onSelect(doc);
+    },
+    onError: (err: Error) => setActionError(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (docId: string) => apiClient.deleteDocument(docId),
+    onSuccess: (doc) => {
+      setActionError(null);
+      refreshDocuments();
+      if (selectedDocId === doc.doc_id) {
+        onClearSelection();
+      }
+    },
+    onError: (err: Error) => setActionError(err.message),
+  });
+
+  const lifecycleActionPending =
+    replaceMutation.isPending ||
+    archiveMutation.isPending ||
+    restoreMutation.isPending ||
+    deleteMutation.isPending;
 
   return (
     <div className="flex flex-col gap-3">
@@ -68,35 +126,97 @@ export function DocumentList({
           Backend not reachable. Is the API running on port 8000?
         </p>
       )}
+      {actionError && (
+        <p className="text-xs text-red-600 dark:text-red-400">{actionError}</p>
+      )}
 
       <ul className="flex flex-col gap-1.5">
         {documents.map((doc) => (
-          <li key={doc.doc_id}>
+          <li
+            key={doc.doc_id}
+            className={`rounded-md border px-3 py-2 text-sm transition-colors ${
+              selectedDocId === doc.doc_id
+                ? "border-zinc-900 bg-zinc-100 dark:border-zinc-100 dark:bg-zinc-800"
+                : "border-zinc-200 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+            }`}
+          >
             <button
               type="button"
               onClick={() => onSelect(doc)}
-              className={`w-full rounded-md border px-3 py-2 text-left text-sm transition-colors ${
-                selectedDocId === doc.doc_id
-                  ? "border-zinc-900 bg-zinc-100 dark:border-zinc-100 dark:bg-zinc-800"
-                  : "border-zinc-200 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
-              }`}
+              className="w-full text-left"
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="truncate font-medium text-zinc-900 dark:text-zinc-100">
                   {doc.title}
                 </span>
-                <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_STYLES[doc.status]}`}
-                >
-                  {doc.status}
-                </span>
+                <div className="flex shrink-0 items-center gap-1">
+                  {doc.lifecycle_status !== "active" && (
+                    <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-[10px] font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                      {doc.lifecycle_status}
+                    </span>
+                  )}
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_STYLES[doc.status]}`}
+                  >
+                    {doc.status}
+                  </span>
+                </div>
               </div>
-              {doc.page_count > 0 && (
-                <span className="text-xs text-zinc-400">
-                  {doc.page_count} pages
-                </span>
-              )}
+              <span className="text-xs text-zinc-400">
+                {doc.source} | v{doc.version}
+                {doc.page_count > 0 ? ` | ${doc.page_count} pages` : ""}
+              </span>
             </button>
+            {canManage && (
+              <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px]">
+                {doc.lifecycle_status === "active" && (
+                  <>
+                    <label className="cursor-pointer rounded border border-zinc-300 px-2 py-1 text-zinc-500 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800">
+                      Replace
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept=".pdf,.md,.markdown,.txt,.html,.htm,.docx,application/pdf,text/markdown,text/plain,text/html"
+                        disabled={lifecycleActionPending}
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (file) {
+                            replaceMutation.mutate({ docId: doc.doc_id, file });
+                            event.target.value = "";
+                          }
+                        }}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => archiveMutation.mutate(doc.doc_id)}
+                      disabled={lifecycleActionPending}
+                      className="rounded border border-zinc-300 px-2 py-1 text-zinc-500 hover:bg-zinc-100 disabled:text-zinc-300 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                    >
+                      Archive
+                    </button>
+                  </>
+                )}
+                {doc.lifecycle_status === "archived" && (
+                  <button
+                    type="button"
+                    onClick={() => restoreMutation.mutate(doc.doc_id)}
+                    disabled={lifecycleActionPending}
+                    className="rounded border border-zinc-300 px-2 py-1 text-zinc-500 hover:bg-zinc-100 disabled:text-zinc-300 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                  >
+                    Restore
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => deleteMutation.mutate(doc.doc_id)}
+                  disabled={lifecycleActionPending}
+                  className="rounded border border-red-200 px-2 py-1 text-red-500 hover:bg-red-50 disabled:text-red-200 dark:border-red-900/70 dark:hover:bg-red-950/30"
+                >
+                  Delete
+                </button>
+              </div>
+            )}
           </li>
         ))}
         {!isLoading && documents.length === 0 && !error && (

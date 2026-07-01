@@ -11,6 +11,8 @@ from sqlalchemy.orm import Session
 
 from app.models import Chunk, Document
 
+DELETED_LIFECYCLE_STATUS = "deleted"
+
 
 def create_document(db: Session, document: Document) -> Document:
     db.add(document)
@@ -28,7 +30,13 @@ def get_document_by_id(db: Session, pk: str) -> Document | None:
 
 
 def list_documents(db: Session) -> list[Document]:
-    return list(db.scalars(select(Document).order_by(Document.created_at.desc())))
+    return list(
+        db.scalars(
+            select(Document)
+            .where(Document.lifecycle_status != DELETED_LIFECYCLE_STATUS)
+            .order_by(Document.created_at.desc())
+        )
+    )
 
 
 def list_documents_by_knowledge_base(
@@ -39,9 +47,42 @@ def list_documents_by_knowledge_base(
         db.scalars(
             select(Document)
             .where(Document.knowledge_base_id == knowledge_base_id)
+            .where(Document.lifecycle_status != DELETED_LIFECYCLE_STATUS)
             .order_by(Document.created_at.desc())
         )
     )
+
+
+def list_active_documents_by_knowledge_base(
+    db: Session,
+    knowledge_base_id: str,
+) -> list[Document]:
+    return list(
+        db.scalars(
+            select(Document)
+            .where(Document.knowledge_base_id == knowledge_base_id)
+            .where(Document.lifecycle_status == "active")
+            .order_by(Document.created_at.desc())
+        )
+    )
+
+
+def update_lifecycle(
+    db: Session,
+    doc_id: str,
+    lifecycle_status: str,
+    *,
+    replaced_by_doc_id: str | None = None,
+) -> Document | None:
+    doc = get_document(db, doc_id)
+    if doc is None:
+        return None
+    doc.lifecycle_status = lifecycle_status
+    if replaced_by_doc_id is not None:
+        doc.replaced_by_doc_id = replaced_by_doc_id
+    db.commit()
+    db.refresh(doc)
+    return doc
 
 
 def update_status(

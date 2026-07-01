@@ -16,8 +16,12 @@ const MODES: Array<{ label: string; value: EvaluationExecutionMode }> = [
 
 export function EvaluationPanel({
   knowledgeBaseId,
+  onOpenChatTrace,
+  onOpenAgentRun,
 }: {
   knowledgeBaseId: string | null;
+  onOpenChatTrace?: (traceId: string) => void;
+  onOpenAgentRun?: (runId: string) => void;
 }) {
   const queryClient = useQueryClient();
   const [datasetKey, setDatasetKey] = useState("phase2_fixed_qa");
@@ -156,6 +160,31 @@ export function EvaluationPanel({
                     Missing: {item.missing_keywords.join(", ")}
                   </p>
                 )}
+                <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-zinc-400">
+                  <span>
+                    {item.answer_status} | {item.latency_ms}ms
+                  </span>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {item.chat_trace_id && onOpenChatTrace && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenChatTrace(item.chat_trace_id as string)}
+                        className="font-medium text-zinc-500 underline-offset-2 hover:underline dark:text-zinc-400"
+                      >
+                        Trace
+                      </button>
+                    )}
+                    {item.agent_run_id && onOpenAgentRun && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenAgentRun(item.agent_run_id as string)}
+                        className="font-medium text-zinc-500 underline-offset-2 hover:underline dark:text-zinc-400"
+                      >
+                        Agent
+                      </button>
+                    )}
+                  </div>
+                </div>
               </li>
             ))}
           </ul>
@@ -166,6 +195,20 @@ export function EvaluationPanel({
 }
 
 function RunSummary({ run }: { run: EvaluationRunResponse }) {
+  const averageKeywordCoverage = numberMetric(run.metrics_json.average_keyword_coverage);
+  const averageRecallAtK = numberMetric(run.metrics_json.average_recall_at_k);
+  const averageCitationAccuracy = numberMetric(
+    run.metrics_json.average_citation_accuracy
+  );
+  const averageFaithfulness = numberMetric(run.metrics_json.average_faithfulness);
+  const answerRate = numberMetric(run.metrics_json.answer_rate);
+  const traceRate = numberMetric(run.metrics_json.trace_rate);
+  const errorRate = numberMetric(run.metrics_json.error_rate);
+  const passDelta = numberMetric(run.metric_deltas.pass_rate);
+  const coverageDelta = numberMetric(run.metric_deltas.average_keyword_coverage);
+  const recallDelta = numberMetric(run.metric_deltas.average_recall_at_k);
+  const latencyDelta = numberMetric(run.metric_deltas.average_latency_ms);
+
   return (
     <div className="rounded-md border border-zinc-200 p-2 text-sm dark:border-zinc-800">
       <div className="mb-1 flex items-center justify-between gap-2 text-xs">
@@ -179,9 +222,29 @@ function RunSummary({ run }: { run: EvaluationRunResponse }) {
         <Metric label="Passed" value={String(run.passed_count)} />
         <Metric label="Failed" value={String(run.failed_count)} />
       </div>
+      <div className="mt-1 grid grid-cols-4 gap-1 text-center text-xs">
+        <Metric label="Coverage" value={`${Math.round(averageKeywordCoverage * 100)}%`} />
+        <Metric label="Recall" value={`${Math.round(averageRecallAtK * 100)}%`} />
+        <Metric label="Citation" value={`${Math.round(averageCitationAccuracy * 100)}%`} />
+        <Metric label="Faith" value={`${Math.round(averageFaithfulness * 100)}%`} />
+      </div>
+      <div className="mt-1 grid grid-cols-4 gap-1 text-center text-xs">
+        <Metric label="Answer" value={`${Math.round(answerRate * 100)}%`} />
+        <Metric label="Trace" value={`${Math.round(traceRate * 100)}%`} />
+        <Metric label="Error" value={`${Math.round(errorRate * 100)}%`} />
+        <Metric label="Tokens" value={String(numberMetric(run.metrics_json.estimated_total_tokens))} />
+      </div>
       <p className="mt-2 text-[10px] text-zinc-400">
-        {run.question_count} questions | avg {run.average_latency_ms}ms
+        {run.question_count} questions | avg {run.average_latency_ms}ms |{" "}
+        {shortVersion(run.dataset_version)}
       </p>
+      {run.previous_run_id && (
+        <p className="mt-1 text-[10px] text-zinc-400">
+          vs previous: pass {formatDelta(passDelta, true)} | coverage{" "}
+          {formatDelta(coverageDelta, true)} | recall {formatDelta(recallDelta, true)} |
+          latency {formatDelta(latencyDelta, false)}ms
+        </p>
+      )}
     </div>
   );
 }
@@ -214,4 +277,17 @@ function formatTime(value: string): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function numberMetric(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function formatDelta(value: number, asPercent: boolean): string {
+  const rendered = asPercent ? `${Math.round(value * 100)}%` : String(Math.round(value));
+  return value > 0 ? `+${rendered}` : rendered;
+}
+
+function shortVersion(value: string): string {
+  return value ? value.replace("sha256:", "ds:") : "no snapshot";
 }

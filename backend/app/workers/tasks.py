@@ -1,6 +1,6 @@
 """Async document processing tasks (RQ).
 
-Pipeline: parse PDF -> chunk -> embed -> index (Qdrant + Postgres).
+Pipeline: parse source document -> chunk -> embed -> index (Qdrant + Postgres).
 Each step updates the document status so the frontend can poll progress.
 """
 
@@ -14,7 +14,7 @@ from app.models import Chunk
 from app.repositories import document_repo
 from app.services.chunk_service import chunk_document
 from app.services.embedding_service import embed_texts
-from app.services.parser_service import parse_pdf
+from app.services.parser_service import parse_document
 from app.services.vector_service import delete_document_vectors, index_chunks
 
 logger = logging.getLogger(__name__)
@@ -37,7 +37,7 @@ def process_document(doc_id: str) -> None:
         # --- Parse ---
         document_repo.update_status(db, doc_id, "parsing")
         try:
-            parsed = parse_pdf(doc.file_path)
+            parsed = parse_document(doc.file_path, source=doc.source)
         except Exception as e:  # noqa: BLE001
             document_repo.update_status(
                 db, doc_id, "failed", error_message=f"parse error: {e}"
@@ -53,7 +53,7 @@ def process_document(doc_id: str) -> None:
         text_chunks = chunk_document(parsed, doc_id)
         if not text_chunks:
             document_repo.update_status(
-                db, doc_id, "failed", error_message="no text extracted from PDF"
+                db, doc_id, "failed", error_message="no text extracted from document"
             )
             return
 

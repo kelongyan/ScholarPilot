@@ -54,7 +54,7 @@ def retrieve_sparse(
     if doc_id:
         chunks = document_repo.list_chunks(db, doc_id)
     elif knowledge_base_id:
-        docs = document_repo.list_documents_by_knowledge_base(db, knowledge_base_id)
+        docs = document_repo.list_active_documents_by_knowledge_base(db, knowledge_base_id)
         chunks = document_repo.list_chunks_by_doc_ids(
             db,
             [doc.doc_id for doc in docs],

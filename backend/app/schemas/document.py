@@ -16,6 +16,11 @@ class DocumentResponse(BaseModel):
     knowledge_base_id: str
     title: str
     source: str
+    content_hash: str = ""
+    version: int = 1
+    lifecycle_status: str = "active"
+    replaces_doc_id: str = ""
+    replaced_by_doc_id: str = ""
     status: str
     page_count: int
     error_message: str = ""

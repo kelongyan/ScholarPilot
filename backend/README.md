@@ -8,7 +8,7 @@ data.
 The current implemented path is:
 
 ```
-Upload PDF → Parse → Chunk → Embed → Index → Hybrid Retrieve → Answer → Citations + Trace
+Upload source document → Parse → Chunk → Embed → Index → Hybrid Retrieve → Answer → Citations + Trace
 ```
 
 ## Requirements

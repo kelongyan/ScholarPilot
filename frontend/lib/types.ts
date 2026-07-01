@@ -10,11 +10,18 @@ export type DocumentStatus =
   | "indexed"
   | "failed";
 
+export type DocumentLifecycleStatus = "active" | "archived" | "deleted";
+
 export interface DocumentResponse {
   doc_id: string;
   knowledge_base_id: string;
   title: string;
   source: string;
+  content_hash: string;
+  version: number;
+  lifecycle_status: DocumentLifecycleStatus;
+  replaces_doc_id: string;
+  replaced_by_doc_id: string;
   status: DocumentStatus;
   page_count: number;
   error_message: string;
@@ -65,6 +72,25 @@ export interface ChatResponse {
   citations: CitationResponse[];
   trace?: RetrievalTraceResponse | null;
   question_log_id?: string | null;
+}
+
+export interface ChatTraceResponse {
+  trace_id: string;
+  question_log_id: string;
+  query: string;
+  rewritten_query: string;
+  dense_results_json: RetrievalHitResponse[];
+  sparse_results_json: RetrievalHitResponse[];
+  fused_results_json: RetrievalHitResponse[];
+  reranked_results_json: RetrievalHitResponse[];
+  evidence_pack_json: EvidenceItemResponse[];
+  answer: string;
+  citations_json: CitationResponse[];
+  answer_status: string;
+  model: string;
+  latency_ms: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ChatRequest {
@@ -159,6 +185,39 @@ export interface CurrentUserResponse {
   auth_enabled: boolean;
 }
 
+export interface UserAccountResponse {
+  user_id: string;
+  email: string;
+  display_name: string;
+  status: string;
+  role: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type KnowledgeBaseMemberRole = "viewer" | "contributor" | "manager" | "owner";
+export type KnowledgeBaseMemberStatus = "active" | "disabled";
+
+export interface KnowledgeBaseMemberResponse {
+  membership_id: string;
+  knowledge_base_id: string;
+  user_id: string;
+  role: KnowledgeBaseMemberRole;
+  status: KnowledgeBaseMemberStatus;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface KnowledgeBaseMemberListResponse {
+  members: KnowledgeBaseMemberResponse[];
+}
+
+export interface KnowledgeBaseMemberUpsertRequest {
+  role: KnowledgeBaseMemberRole;
+  status?: KnowledgeBaseMemberStatus;
+}
+
 export interface EvaluationDatasetQuestionResponse {
   sequence: number;
   question: string;
@@ -203,6 +262,7 @@ export interface EvaluationRunItemResponse {
   expected_keywords: string[];
   matched_keywords: string[];
   missing_keywords: string[];
+  metrics_json: Record<string, unknown>;
   answer: string;
   answer_status: string;
   execution_route: string;
@@ -227,8 +287,13 @@ export interface EvaluationRunResponse {
   passed_count: number;
   failed_count: number;
   average_latency_ms: number;
+  dataset_version: string;
+  config_snapshot_json: Record<string, unknown>;
   pass_rate: number;
   summary_json: Record<string, unknown>;
+  metrics_json: Record<string, unknown>;
+  previous_run_id?: string | null;
+  metric_deltas: Record<string, number>;
   items: EvaluationRunItemResponse[];
   created_at: string;
   updated_at: string;
@@ -246,6 +311,62 @@ export interface EvaluationRunListFilters {
   status?: string | null;
   created_from?: string | null;
   created_to?: string | null;
+}
+
+export interface ObservabilityEvaluationSummaryResponse {
+  run_id: string;
+  dataset_key: string;
+  dataset_version: string;
+  execution_mode: string;
+  pass_rate: number;
+  average_keyword_coverage: number;
+  average_recall_at_k: number;
+  average_mrr: number;
+  average_citation_accuracy: number;
+  average_faithfulness: number;
+  average_answer_relevance: number;
+  answer_rate: number;
+  trace_rate: number;
+  error_rate: number;
+  average_latency_ms: number;
+  created_at: string;
+}
+
+export interface ObservabilityRegressionAlertResponse {
+  metric: string;
+  severity: string;
+  current_value: number;
+  previous_value: number;
+  delta: number;
+  message: string;
+}
+
+export interface ObservabilityLatencyBucketResponse {
+  label: string;
+  min_ms: number;
+  max_ms?: number | null;
+  count: number;
+}
+
+export interface ObservabilitySummaryResponse {
+  knowledge_base_id?: string | null;
+  latest_evaluation?: ObservabilityEvaluationSummaryResponse | null;
+  evaluation_trend: ObservabilityEvaluationSummaryResponse[];
+  regression_alerts: ObservabilityRegressionAlertResponse[];
+  latency_buckets: ObservabilityLatencyBucketResponse[];
+  question_count: number;
+  answered_count: number;
+  unresolved_answer_count: number;
+  no_answer_rate: number;
+  feedback_count: number;
+  negative_feedback_count: number;
+  negative_feedback_rate: number;
+  trace_count: number;
+  average_trace_latency_ms: number;
+  pending_operation_count: number;
+  high_severity_pending_count: number;
+  operation_signal_count: number;
+  generated_at: string;
 }
 
 export interface KnowledgeBaseResponse {
@@ -321,6 +442,9 @@ export interface KnowledgeOperationItemResponse {
   source_type: string;
   source_id: string;
   suggestion_type: string;
+  aggregate_key: string;
+  signal_count: number;
+  last_signal_at?: string | null;
   severity: string;
   title: string;
   description: string;
@@ -340,6 +464,46 @@ export interface KnowledgeOperationItemUpdateRequest {
   resolution_note?: string;
 }
 
+export interface KnowledgeOperationEventResponse {
+  event_id: string;
+  item_id: string;
+  knowledge_base_id?: string | null;
+  event_type: string;
+  actor_id: string;
+  source_type: string;
+  source_id: string;
+  suggestion_type: string;
+  status: string;
+  note: string;
+  detail_json: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface KnowledgeOperationEventListResponse {
+  events: KnowledgeOperationEventResponse[];
+}
+
+export interface KnowledgeOperationDraftResponse {
+  draft_id: string;
+  item_id: string;
+  knowledge_base_id?: string | null;
+  doc_id?: string | null;
+  question_log_id?: string | null;
+  draft_type: string;
+  status: string;
+  title: string;
+  question: string;
+  answer: string;
+  source_note: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface KnowledgeOperationDraftListResponse {
+  drafts: KnowledgeOperationDraftResponse[];
+}
+
 export interface KnowledgeOperationSuggestionResponse {
   suggestion_id: string;
   item_id: string;
@@ -350,6 +514,9 @@ export interface KnowledgeOperationSuggestionResponse {
   source_type: string;
   source_id: string;
   suggestion_type: string;
+  aggregate_key: string;
+  signal_count: number;
+  last_signal_at?: string | null;
   severity: string;
   title: string;
   description: string;

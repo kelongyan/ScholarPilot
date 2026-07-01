@@ -18,6 +18,12 @@ from app.schemas.evaluation import (
     EvaluationRunResponse,
     EvaluationRunStatus,
 )
+from app.schemas.governance import (
+    KnowledgeBaseMemberListResponse,
+    KnowledgeBaseMemberResponse,
+    KnowledgeBaseMemberUpsertRequest,
+    UserAccountResponse,
+)
 from app.schemas.knowledge_base import (
     KnowledgeBaseCreateRequest,
     KnowledgeBaseListResponse,
@@ -25,11 +31,22 @@ from app.schemas.knowledge_base import (
     KnowledgeBaseUpdateRequest,
 )
 from app.schemas.knowledge_operations import (
+    KnowledgeOperationDraftListResponse,
+    KnowledgeOperationDraftResponse,
+    KnowledgeOperationEventListResponse,
+    KnowledgeOperationEventResponse,
     KnowledgeOperationItemListResponse,
     KnowledgeOperationItemResponse,
     KnowledgeOperationItemUpdateRequest,
     KnowledgeOperationSuggestionListResponse,
     KnowledgeOperationSuggestionResponse,
+)
+from app.schemas.observability import (
+    ObservabilityEvaluationSummaryResponse,
+    ObservabilityLatencyBucketResponse,
+    ObservabilityRegressionAlertResponse,
+    ObservabilitySummaryResponse,
+    ObservabilityTrendPointResponse,
 )
 from app.schemas.question_log import (
     AnswerFeedbackRequest,
@@ -63,18 +80,31 @@ __all__ = [
     "EvaluationRunListResponse",
     "EvaluationRunResponse",
     "EvaluationRunStatus",
+    "KnowledgeBaseMemberListResponse",
+    "KnowledgeBaseMemberResponse",
+    "KnowledgeBaseMemberUpsertRequest",
     "KnowledgeBaseCreateRequest",
     "KnowledgeBaseListResponse",
     "KnowledgeBaseResponse",
     "KnowledgeBaseUpdateRequest",
+    "KnowledgeOperationDraftListResponse",
+    "KnowledgeOperationDraftResponse",
+    "KnowledgeOperationEventListResponse",
+    "KnowledgeOperationEventResponse",
     "KnowledgeOperationItemListResponse",
     "KnowledgeOperationItemResponse",
     "KnowledgeOperationItemUpdateRequest",
     "KnowledgeOperationSuggestionListResponse",
     "KnowledgeOperationSuggestionResponse",
+    "ObservabilityEvaluationSummaryResponse",
+    "ObservabilityLatencyBucketResponse",
+    "ObservabilityRegressionAlertResponse",
+    "ObservabilitySummaryResponse",
+    "ObservabilityTrendPointResponse",
     "AnswerFeedbackRequest",
     "AnswerFeedbackResponse",
     "QuestionLogCreateRequest",
     "QuestionLogListResponse",
     "QuestionLogResponse",
+    "UserAccountResponse",
 ]

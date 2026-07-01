@@ -34,6 +34,11 @@ class Document(Base):
     title: Mapped[str] = mapped_column(String(512), default="")
     source: Mapped[str] = mapped_column(String(32), default="pdf")
     file_path: Mapped[str] = mapped_column(String(1024), default="")
+    content_hash: Mapped[str] = mapped_column(String(64), default="", index=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    lifecycle_status: Mapped[str] = mapped_column(String(32), default="active", index=True)
+    replaces_doc_id: Mapped[str] = mapped_column(String(128), default="", index=True)
+    replaced_by_doc_id: Mapped[str] = mapped_column(String(128), default="", index=True)
     # uploaded | parsing | parsed | indexing | indexed | failed
     status: Mapped[str] = mapped_column(String(32), default="uploaded", index=True)
     page_count: Mapped[int] = mapped_column(Integer, default=0)

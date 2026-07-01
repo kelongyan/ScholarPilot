@@ -61,7 +61,10 @@ class EvaluationRun(Base):
     passed_count: Mapped[int] = mapped_column(Integer, default=0)
     failed_count: Mapped[int] = mapped_column(Integer, default=0)
     average_latency_ms: Mapped[int] = mapped_column(Integer, default=0)
+    dataset_version: Mapped[str] = mapped_column(String(64), default="")
+    config_snapshot_json: Mapped[dict[str, object]] = mapped_column(JSON, default=dict)
     summary_json: Mapped[dict[str, object]] = mapped_column(JSON, default=dict)
+    metrics_json: Mapped[dict[str, object]] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
@@ -85,6 +88,7 @@ class EvaluationRunItem(Base):
     expected_keywords_json: Mapped[list[str]] = mapped_column(JSON, default=list)
     matched_keywords_json: Mapped[list[str]] = mapped_column(JSON, default=list)
     missing_keywords_json: Mapped[list[str]] = mapped_column(JSON, default=list)
+    metrics_json: Mapped[dict[str, object]] = mapped_column(JSON, default=dict)
     answer: Mapped[str] = mapped_column(Text, default="")
     answer_status: Mapped[str] = mapped_column(String(32), default="")
     execution_route: Mapped[str] = mapped_column(String(32), default="")

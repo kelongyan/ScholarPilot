@@ -7,11 +7,13 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import (
     CurrentUser,
-    filter_by_knowledge_base_access,
-    require_knowledge_base_access,
     require_min_role,
 )
 from app.core.db import get_db
+from app.core.permissions import (
+    filter_by_knowledge_base_access,
+    require_knowledge_base_access,
+)
 from app.schemas.question_log import (
     AnswerFeedbackRequest,
     AnswerFeedbackResponse,
@@ -31,6 +33,7 @@ async def list_question_logs(
 ) -> QuestionLogListResponse:
     logs = question_log_service.list_question_logs(db)
     logs = filter_by_knowledge_base_access(
+        db,
         logs,
         current_user,
         get_knowledge_base_id=lambda log: log.knowledge_base_id,
@@ -46,7 +49,12 @@ async def create_question_log(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_min_role("user")),
 ) -> QuestionLogResponse:
-    require_knowledge_base_access(current_user, request.knowledge_base_id)
+    require_knowledge_base_access(
+        db,
+        current_user,
+        request.knowledge_base_id,
+        min_member_role="contributor",
+    )
     log = question_log_service.create_question_log(
         db,
         doc_id=request.doc_id,
@@ -73,6 +81,7 @@ async def upsert_feedback(
             detail=f"Question log not found: {question_log_id}",
         )
     require_knowledge_base_access(
+        db,
         current_user,
         getattr(existing_log, "knowledge_base_id", None),
     )

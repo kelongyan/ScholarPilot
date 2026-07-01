@@ -13,6 +13,7 @@ import type {
   AnswerFeedbackResponse,
   ChatRequest,
   ChatResponse,
+  ChatTraceResponse,
   CurrentUserResponse,
   DocumentListResponse,
   DocumentResponse,
@@ -24,12 +25,19 @@ import type {
   EvaluationRunResponse,
   KnowledgeBaseCreateRequest,
   KnowledgeBaseListResponse,
+  KnowledgeBaseMemberListResponse,
+  KnowledgeBaseMemberResponse,
+  KnowledgeBaseMemberUpsertRequest,
   KnowledgeBaseResponse,
   KnowledgeBaseUpdateRequest,
+  KnowledgeOperationDraftListResponse,
+  KnowledgeOperationEventListResponse,
   KnowledgeOperationItemListResponse,
   KnowledgeOperationItemResponse,
   KnowledgeOperationItemUpdateRequest,
   KnowledgeOperationSuggestionListResponse,
+  ObservabilitySummaryResponse,
+  UserAccountResponse,
 } from "./types";
 
 const API_BASE_URL =
@@ -73,7 +81,50 @@ export class ApiClient {
     return res.json() as Promise<CurrentUserResponse>;
   }
 
-  /** Upload a PDF and start async processing. */
+  async getCurrentGovernanceUser(): Promise<UserAccountResponse> {
+    const res = await fetch(`${this.baseUrl}/governance/users/me`, {
+      headers: this.headers(),
+    });
+    if (!res.ok) {
+      throw new Error(`Get governance user failed: ${res.status}`);
+    }
+    return res.json() as Promise<UserAccountResponse>;
+  }
+
+  async listKnowledgeBaseMembers(
+    knowledgeBaseId: string
+  ): Promise<KnowledgeBaseMemberListResponse> {
+    const res = await fetch(
+      `${this.baseUrl}/governance/knowledge-bases/${knowledgeBaseId}/members`,
+      { headers: this.headers() }
+    );
+    if (!res.ok) {
+      throw new Error(`List knowledge base members failed: ${res.status}`);
+    }
+    return res.json() as Promise<KnowledgeBaseMemberListResponse>;
+  }
+
+  async upsertKnowledgeBaseMember(
+    knowledgeBaseId: string,
+    userId: string,
+    request: KnowledgeBaseMemberUpsertRequest
+  ): Promise<KnowledgeBaseMemberResponse> {
+    const res = await fetch(
+      `${this.baseUrl}/governance/knowledge-bases/${knowledgeBaseId}/members/${userId}`,
+      {
+        method: "PUT",
+        headers: this.jsonHeaders(),
+        body: JSON.stringify(request),
+      }
+    );
+    if (!res.ok) {
+      const detail = await res.text();
+      throw new Error(`Upsert knowledge base member failed: ${res.status} ${detail}`);
+    }
+    return res.json() as Promise<KnowledgeBaseMemberResponse>;
+  }
+
+  /** Upload a supported source document and start async processing. */
   async uploadDocument(
     file: File,
     knowledgeBaseId?: string | null
@@ -115,6 +166,56 @@ export class ApiClient {
     });
     if (!res.ok) {
       throw new Error(`Get document failed: ${res.status}`);
+    }
+    return res.json() as Promise<DocumentResponse>;
+  }
+
+  async replaceDocument(docId: string, file: File): Promise<DocumentResponse> {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch(`${this.baseUrl}/documents/${docId}/replace`, {
+      method: "POST",
+      headers: this.headers(),
+      body: form,
+    });
+    if (!res.ok) {
+      const detail = await res.text();
+      throw new Error(`Replace document failed: ${res.status} ${detail}`);
+    }
+    return res.json() as Promise<DocumentResponse>;
+  }
+
+  async archiveDocument(docId: string): Promise<DocumentResponse> {
+    return this.postDocumentLifecycleAction(docId, "archive");
+  }
+
+  async restoreDocument(docId: string): Promise<DocumentResponse> {
+    return this.postDocumentLifecycleAction(docId, "restore");
+  }
+
+  async deleteDocument(docId: string): Promise<DocumentResponse> {
+    const res = await fetch(`${this.baseUrl}/documents/${docId}`, {
+      method: "DELETE",
+      headers: this.headers(),
+    });
+    if (!res.ok) {
+      const detail = await res.text();
+      throw new Error(`Delete document failed: ${res.status} ${detail}`);
+    }
+    return res.json() as Promise<DocumentResponse>;
+  }
+
+  private async postDocumentLifecycleAction(
+    docId: string,
+    action: "archive" | "restore"
+  ): Promise<DocumentResponse> {
+    const res = await fetch(`${this.baseUrl}/documents/${docId}/${action}`, {
+      method: "POST",
+      headers: this.headers(),
+    });
+    if (!res.ok) {
+      const detail = await res.text();
+      throw new Error(`${action} document failed: ${res.status} ${detail}`);
     }
     return res.json() as Promise<DocumentResponse>;
   }
@@ -171,6 +272,30 @@ export class ApiClient {
       throw new Error(`Get Agent run failed: ${res.status}`);
     }
     return res.json() as Promise<AgentRunResponse>;
+  }
+
+  async getChatTrace(traceId: string): Promise<ChatTraceResponse> {
+    const res = await fetch(`${this.baseUrl}/chat-traces/${traceId}`, {
+      headers: this.headers(),
+    });
+    if (!res.ok) {
+      throw new Error(`Get chat trace failed: ${res.status}`);
+    }
+    return res.json() as Promise<ChatTraceResponse>;
+  }
+
+  async getObservabilitySummary(
+    knowledgeBaseId?: string | null
+  ): Promise<ObservabilitySummaryResponse> {
+    const url = new URL(`${this.baseUrl}/observability/summary`);
+    if (knowledgeBaseId) {
+      url.searchParams.set("knowledge_base_id", knowledgeBaseId);
+    }
+    const res = await fetch(url, { headers: this.headers() });
+    if (!res.ok) {
+      throw new Error(`Get observability summary failed: ${res.status}`);
+    }
+    return res.json() as Promise<ObservabilitySummaryResponse>;
   }
 
   async listAuditLogs(
@@ -335,6 +460,28 @@ export class ApiClient {
     return res.json() as Promise<KnowledgeOperationItemListResponse>;
   }
 
+  async listKnowledgeOperationDrafts(
+    knowledgeBaseId?: string | null,
+    itemId?: string | null,
+    status?: string | null
+  ): Promise<KnowledgeOperationDraftListResponse> {
+    const url = new URL(`${this.baseUrl}/knowledge-operations/drafts`);
+    if (knowledgeBaseId) {
+      url.searchParams.set("knowledge_base_id", knowledgeBaseId);
+    }
+    if (itemId) {
+      url.searchParams.set("item_id", itemId);
+    }
+    if (status) {
+      url.searchParams.set("status", status);
+    }
+    const res = await fetch(url, { headers: this.headers() });
+    if (!res.ok) {
+      throw new Error(`List knowledge operation drafts failed: ${res.status}`);
+    }
+    return res.json() as Promise<KnowledgeOperationDraftListResponse>;
+  }
+
   async listKnowledgeOperationSuggestions(
     knowledgeBaseId?: string | null,
     runId?: string | null
@@ -367,6 +514,18 @@ export class ApiClient {
       throw new Error(`Update knowledge operation item failed: ${res.status} ${detail}`);
     }
     return res.json() as Promise<KnowledgeOperationItemResponse>;
+  }
+
+  async listKnowledgeOperationItemEvents(
+    itemId: string
+  ): Promise<KnowledgeOperationEventListResponse> {
+    const res = await fetch(`${this.baseUrl}/knowledge-operations/items/${itemId}/events`, {
+      headers: this.headers(),
+    });
+    if (!res.ok) {
+      throw new Error(`List knowledge operation item events failed: ${res.status}`);
+    }
+    return res.json() as Promise<KnowledgeOperationEventListResponse>;
   }
 }
 

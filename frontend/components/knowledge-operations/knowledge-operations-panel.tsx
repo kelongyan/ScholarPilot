@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
 import type {
+  KnowledgeOperationEventResponse,
   KnowledgeOperationItemResponse,
   KnowledgeOperationStatus,
 } from "@/lib/types";
@@ -31,14 +32,29 @@ const SOURCE_TYPE_OPTIONS = [
   { label: "Agent runs", value: "agent_run" },
 ];
 
+const WORK_TYPE_OPTIONS = [
+  { label: "All work", value: "" },
+  { label: "Knowledge gaps", value: "knowledge_gap" },
+  { label: "Answer quality", value: "answer_quality" },
+  { label: "Citation review", value: "citation_review" },
+  { label: "Failed documents", value: "failed_document" },
+  { label: "Agent warnings", value: "agent_warning" },
+];
+
 const ACTIONS: Array<{
   label: string;
   status: KnowledgeOperationStatus;
   note: string;
+  requiresDocument?: boolean;
 }> = [
   { label: "Resolve", status: "resolved", note: "Marked resolved from operations UI." },
   { label: "Ignore", status: "ignored", note: "Marked ignored from operations UI." },
-  { label: "Reindexed", status: "reindexed", note: "Document reindex handled." },
+  {
+    label: "Queue reindex",
+    status: "reindexed",
+    note: "Document reindex queued from operations UI.",
+    requiresDocument: true,
+  },
   { label: "Doc added", status: "document_added", note: "Supporting document added." },
 ];
 
@@ -54,6 +70,7 @@ export function KnowledgeOperationsPanel({
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState("pending");
   const [sourceTypeFilter, setSourceTypeFilter] = useState("");
+  const [workTypeFilter, setWorkTypeFilter] = useState("");
 
   const visibleSourceType = selectedRunId ? "agent_run" : sourceTypeFilter;
 
@@ -91,12 +108,22 @@ export function KnowledgeOperationsPanel({
         status,
         resolution_note: resolutionNote,
       }),
-    onSuccess: () => {
+    onSuccess: (item) => {
       queryClient.invalidateQueries({ queryKey: ["knowledge-operation-items"] });
+      queryClient.invalidateQueries({ queryKey: ["audit-logs"] });
+      if (item.status === "reindexed") {
+        queryClient.invalidateQueries({ queryKey: ["documents"] });
+      }
     },
   });
 
-  const items = data?.items ?? [];
+  const items = (data?.items ?? []).filter((item) => {
+    if (!workTypeFilter) {
+      return true;
+    }
+    return getWorkType(item) === workTypeFilter;
+  });
+  const totalCount = data?.items.length ?? 0;
 
   return (
     <section className="flex flex-col gap-3">
@@ -106,7 +133,7 @@ export function KnowledgeOperationsPanel({
             Operations
           </h2>
           <p className="text-[11px] text-zinc-400">
-            {items.length} item(s)
+            {items.length}/{totalCount} item(s)
           </p>
         </div>
         <button
@@ -143,6 +170,19 @@ export function KnowledgeOperationsPanel({
       </select>
 
       <select
+        value={workTypeFilter}
+        onChange={(event) => setWorkTypeFilter(event.target.value)}
+        disabled={!knowledgeBaseId}
+        className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-600 disabled:bg-zinc-50 disabled:text-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:disabled:bg-zinc-900/50"
+      >
+        {WORK_TYPE_OPTIONS.map((option) => (
+          <option key={option.label} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+
+      <select
         value={visibleSourceType}
         onChange={(event) => setSourceTypeFilter(event.target.value)}
         disabled={!knowledgeBaseId || Boolean(selectedRunId)}
@@ -164,23 +204,30 @@ export function KnowledgeOperationsPanel({
       ) : items.length === 0 ? (
         <EmptyState text="No operation items" />
       ) : (
-        <ul className="flex max-h-72 flex-col gap-2 overflow-auto pr-1">
-          {items.slice(0, 8).map((item) => (
-            <li key={item.item_id}>
-              <OperationItemCard
-                item={item}
-                isUpdating={mutation.isPending}
-                onUpdate={(status, note) =>
-                  mutation.mutate({
-                    itemId: item.item_id,
-                    status,
-                    resolutionNote: note,
-                  })
-                }
-              />
-            </li>
-          ))}
-        </ul>
+        <>
+          {mutation.isError && (
+            <p className="rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-[11px] text-red-600 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
+              {mutation.error.message}
+            </p>
+          )}
+          <ul className="flex max-h-72 flex-col gap-2 overflow-auto pr-1">
+            {items.slice(0, 8).map((item) => (
+              <li key={item.item_id}>
+                <OperationItemCard
+                  item={item}
+                  isUpdating={mutation.isPending}
+                  onUpdate={(status, note) =>
+                    mutation.mutate({
+                      itemId: item.item_id,
+                      status,
+                      resolutionNote: note,
+                    })
+                  }
+                />
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </section>
   );
@@ -195,6 +242,21 @@ function OperationItemCard({
   isUpdating: boolean;
   onUpdate: (status: KnowledgeOperationStatus, note: string) => void;
 }) {
+  const [showEvents, setShowEvents] = useState(false);
+  const actions = ACTIONS.filter((action) => {
+    if (!action.requiresDocument) {
+      return true;
+    }
+    return Boolean(item.doc_id) || item.suggestion_type === "reindex_document";
+  });
+  const eventsQuery = useQuery({
+    queryKey: ["knowledge-operation-item-events", item.item_id],
+    queryFn: () => apiClient.listKnowledgeOperationItemEvents(item.item_id),
+    enabled: showEvents,
+    staleTime: 10_000,
+  });
+  const events = eventsQuery.data?.events ?? [];
+
   return (
     <div className="rounded-md border border-zinc-200 p-2 text-sm dark:border-zinc-800">
       <div className="mb-1 flex items-center justify-between gap-2">
@@ -216,12 +278,16 @@ function OperationItemCard({
         {item.suggested_action}
       </p>
       <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-zinc-400">
-        <span>{formatLabel(item.source_type)}</span>
+        <span>{formatLabel(getWorkType(item))}</span>
         <span>{formatLabel(item.status)}</span>
+      </div>
+      <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-zinc-400">
+        <span>{item.signal_count} signal(s)</span>
+        {item.last_signal_at && <span>{formatShortDate(item.last_signal_at)}</span>}
       </div>
       {item.status === "pending" && (
         <div className="mt-2 grid grid-cols-2 gap-1">
-          {ACTIONS.map((action) => (
+          {actions.map((action) => (
             <button
               key={action.status}
               type="button"
@@ -239,7 +305,56 @@ function OperationItemCard({
           {item.resolution_note}
         </p>
       )}
+      <button
+        type="button"
+        onClick={() => setShowEvents((value) => !value)}
+        className="mt-2 text-[10px] font-medium text-zinc-500 underline-offset-2 hover:underline dark:text-zinc-400"
+      >
+        {showEvents ? "Hide history" : "Show history"}
+      </button>
+      {showEvents && (
+        <OperationEventList
+          events={events}
+          isLoading={eventsQuery.isLoading}
+          isError={eventsQuery.isError}
+        />
+      )}
     </div>
+  );
+}
+
+function OperationEventList({
+  events,
+  isLoading,
+  isError,
+}: {
+  events: KnowledgeOperationEventResponse[];
+  isLoading: boolean;
+  isError: boolean;
+}) {
+  if (isLoading) {
+    return <p className="mt-2 text-[10px] text-zinc-400">Loading history...</p>;
+  }
+  if (isError) {
+    return <p className="mt-2 text-[10px] text-red-500">Failed to load history.</p>;
+  }
+  if (events.length === 0) {
+    return <p className="mt-2 text-[10px] text-zinc-400">No history yet.</p>;
+  }
+  return (
+    <ul className="mt-2 flex flex-col gap-1 border-t border-zinc-100 pt-2 dark:border-zinc-800">
+      {events.slice(0, 4).map((event) => (
+        <li key={event.event_id} className="text-[10px] text-zinc-500 dark:text-zinc-400">
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-medium text-zinc-600 dark:text-zinc-300">
+              {formatLabel(event.event_type)}
+            </span>
+            <span>{formatShortDate(event.created_at)}</span>
+          </div>
+          {event.note && <p className="line-clamp-2">{event.note}</p>}
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -253,4 +368,32 @@ function EmptyState({ text }: { text: string }) {
 
 function formatLabel(value: string): string {
   return value.replaceAll("_", " ");
+}
+
+function getWorkType(item: KnowledgeOperationItemResponse): string {
+  if (item.suggestion_type === "faq_draft") {
+    return "knowledge_gap";
+  }
+  if (item.suggestion_type === "answer_quality_review") {
+    return "answer_quality";
+  }
+  if (item.suggestion_type === "citation_review") {
+    return "citation_review";
+  }
+  if (item.suggestion_type === "reindex_document") {
+    return "failed_document";
+  }
+  if (item.suggestion_type === "agent_review") {
+    return "agent_warning";
+  }
+  return item.source_type;
+}
+
+function formatShortDate(value: string): string {
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
 }

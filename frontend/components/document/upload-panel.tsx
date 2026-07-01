@@ -4,9 +4,22 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
 
+const ACCEPTED_SOURCE_TYPES = [
+  "application/pdf",
+  "text/markdown",
+  "text/plain",
+  "text/html",
+  ".md",
+  ".markdown",
+  ".txt",
+  ".html",
+  ".htm",
+  ".docx",
+].join(",");
+
 /**
- * PDF upload panel. Uploads a source file and triggers async processing on the
- * backend, then invalidates the source list.
+ * Source upload panel. Uploads a supported file and triggers async processing
+ * on the backend, then invalidates the source list.
  */
 export function UploadPanel({
   knowledgeBaseId,
@@ -43,10 +56,10 @@ export function UploadPanel({
             : "bg-zinc-900 text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
         }`}
       >
-        {mutation.isPending ? "Uploading..." : "Upload PDF"}
+        {mutation.isPending ? "Uploading..." : "Upload source"}
         <input
           type="file"
-          accept="application/pdf"
+          accept={ACCEPTED_SOURCE_TYPES}
           className="hidden"
           onChange={handleFile}
           disabled={mutation.isPending}
